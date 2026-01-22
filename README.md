@@ -12,7 +12,7 @@
 	<img src="https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square" alt="License" />
 </div>
 
-**Frame** is a high-performance media conversion utility built on the Tauri v2 framework. It provides a native, macOS-only interface for FFmpeg operations, allowing for granular control over video and audio transcoding parameters. The application leverages a Rust-based backend for concurrent task management and process execution, coupled with a Svelte 5 frontend for configuration and state monitoring.
+**Frame** is a high-performance media conversion utility built on the Tauri v2 framework. It provides a native interface for FFmpeg operations, allowing for granular control over video and audio transcoding parameters. The application leverages a Rust-based backend for concurrent task management and process execution, coupled with a Svelte 5 frontend for configuration and state monitoring.
 
 <br />
 <div align="center">
@@ -21,12 +21,13 @@
 <br />
 
 > [!WARNING]  
-> **Unsigned Application Notice (macOS)**
-> Since the application is currently unsigned, macOS will flag it and its sidecar binaries with a quarantine attribute. To run the app, remove the attribute manually:
->
-> ```bash
-> xattr -dr com.apple.quarantine /Applications/Frame.app
-> ```
+> **Unsigned Application Notice**
+> Since the application is currently unsigned, your operating system will flag it:
+> - **macOS:** The system will flag the app and its sidecar binaries with a quarantine attribute. To run the app, remove the attribute manually:
+>   ```bash
+>   xattr -dr com.apple.quarantine /Applications/Frame.app
+>   ```
+> - **Windows:** Windows SmartScreen may prevent the application from starting. Click **"More info"** and then **"Run anyway"** to proceed.
 
 ## Features
 
@@ -77,7 +78,7 @@
 - Node.js runtime (or Bun).
 - Rust toolchain (`cargo`).
 - **FFmpeg** and **FFprobe** binaries must be present in the `src-tauri/binaries/` directory.
-  - Naming convention: `ffmpeg-<target-triple>` (e.g., `ffmpeg-aarch64-apple-darwin`).
+  - Naming convention: `ffmpeg-<target-triple>` (e.g., `ffmpeg-aarch64-apple-darwin` or `ffmpeg-x86_64-pc-windows-msvc.exe`).
 
 > [!IMPORTANT]  
 > **Note for Developers:** Binaries in `src-tauri/binaries/` are now tracked via **Git LFS**. 
