@@ -47,12 +47,16 @@ jobs:
       - name: Install Frontend Dependencies
         run: bun install
 
+      - name: Clean Binaries Directory
+        shell: bash
+        run: rm -rf src-tauri/binaries
+
       - name: Cache FFmpeg Binaries
         id: cache-ffmpeg
         uses: actions/cache@v4
         with:
           path: src-tauri/binaries
-          key: ffmpeg-binaries-${{ matrix.platform }}-${{ matrix.arch }}-v1
+          key: ffmpeg-binaries-${{ matrix.platform }}-${{ matrix.arch }}-v2
 
       - name: Setup FFmpeg (macOS)
         if: matrix.platform == 'macos-14' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
