@@ -1,6 +1,6 @@
 mod conversion;
 mod estimation;
-use tauri::Manager;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::Builder as StoreBuilder;
 #[cfg(target_os = "windows")]
 use window_vibrancy::apply_mica;
@@ -11,7 +11,26 @@ use window_vibrancy::{NSVisualEffectMaterial, apply_vibrancy};
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
+            let mut builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("Frame")
+                    .inner_size(1200.0, 800.0)
+                    .min_inner_size(1200.0, 800.0)
+                    .resizable(true)
+                    .fullscreen(false)
+                    .decorations(false);
+
+            #[cfg(target_os = "macos")]
+            {
+                builder = builder.transparent(true);
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.transparent(false);
+            }
+
+            let window = builder.build().unwrap();
 
             #[cfg(target_os = "macos")]
             apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, Some(16.0))
