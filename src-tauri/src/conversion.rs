@@ -664,25 +664,50 @@ fn infer_target_height(config: &ConversionConfig, metadata: Option<&ProbeMetadat
 
 fn base_video_bitrate(height: i32) -> f64 {
     if height >= 2160 {
-        25000.0
+        30000.0
     } else if height >= 1440 {
-        16000.0
+        14000.0
     } else if height >= 1080 {
-        8000.0
+        7000.0
     } else if height >= 720 {
-        5000.0
+        4000.0
     } else if height >= 480 {
-        2500.0
+        2000.0
     } else {
-        1500.0
+        1000.0
     }
 }
 
-fn codec_scale(codec: &str) -> f64 {
+fn get_codec_base_crf(codec: &str) -> f64 {
     match codec.to_lowercase().as_str() {
-        "libx265" | "h265" => 0.65,
-        "vp9" | "libvpx-vp9" => 0.7,
-        "prores" => 1.6,
+        "libx265" | "h265" | "hevc" => 28.0,
+        "libvpx-vp9" | "vp9" => 31.0,
+        "libaom-av1" | "av1" | "libsvtav1" => 32.0,
+        _ => 23.0,
+    }
+}
+
+fn get_preset_efficiency_factor(preset: &str) -> f64 {
+    match preset.to_lowercase().as_str() {
+        "ultrafast" => 1.50,
+        "superfast" => 1.35,
+        "veryfast" => 1.20,
+        "faster" => 1.12,
+        "fast" => 1.05,
+        "medium" => 1.00,
+        "slow" => 0.92,
+        "slower" => 0.82,
+        "veryslow" => 0.70,
+        _ => 1.00,
+    }
+}
+
+fn codec_efficiency_scale(codec: &str) -> f64 {
+    match codec.to_lowercase().as_str() {
+        "libx265" | "h265" | "hevc" => 0.65,
+        "libvpx-vp9" | "vp9" => 0.70,
+        "libaom-av1" | "av1" | "libsvtav1" => 0.55,
+        "prores" => 4.5,
         _ => 1.0,
     }
 }
@@ -705,13 +730,11 @@ fn parse_source_bitrate(metadata: Option<&ProbeMetadata>) -> Option<f64> {
     }
 }
 
-fn crf_scale(crf: u8) -> f64 {
-    let diff = 23i32 - crf as i32;
-    (2f64).powf(diff as f64 / 6.0)
-}
-
 fn is_audio_only_container(container: &str) -> bool {
-    matches!(container.to_lowercase().as_str(), "mp3")
+    matches!(
+        container.to_lowercase().as_str(),
+        "mp3" | "wav" | "flac" | "aac" | "m4a"
+    )
 }
 
 #[command]
@@ -727,40 +750,68 @@ pub async fn estimate_output(
     } else if config.video_bitrate_mode == "bitrate" {
         config.video_bitrate.parse::<f64>().unwrap_or(0.0)
     } else {
-        let height = infer_target_height(&config, metadata_ref);
+        let target_height = infer_target_height(&config, metadata_ref);
         let source_height =
             parse_resolution_height(metadata_ref.and_then(|m| m.resolution.as_ref()))
-                .unwrap_or(height);
+                .unwrap_or(target_height);
 
-        let mut kbps = if let Some(source_kbps) = parse_source_bitrate(metadata_ref) {
-            let scale_factor = (height as f64 / source_height as f64).powf(1.75);
+        let mut estimated_kbps = if let Some(source_kbps) = parse_source_bitrate(metadata_ref) {
+            let scale_factor = (target_height as f64 / source_height as f64).powf(1.7);
             source_kbps * scale_factor
         } else {
-            base_video_bitrate(height) * codec_scale(&config.video_codec)
+            base_video_bitrate(target_height)
         };
 
-        kbps *= crf_scale(config.crf);
-        if kbps < 400.0 {
-            kbps = 400.0;
+        let target_codec_factor = codec_efficiency_scale(&config.video_codec);
+
+        if parse_source_bitrate(metadata_ref).is_none() {
+            estimated_kbps *= target_codec_factor;
+        } else if let Some(source_codec) = metadata_ref.and_then(|m| m.video_codec.as_ref()) {
+            let source_factor = codec_efficiency_scale(source_codec);
+            estimated_kbps *= target_codec_factor / source_factor;
         }
-        kbps
+
+        let base_crf = get_codec_base_crf(&config.video_codec);
+        let crf_diff = base_crf - config.crf as f64;
+
+        // Use 1.88 instead of 2.0 to dampen the exponential growth.
+        let crf_factor = 1.88f64.powf(crf_diff / 6.0);
+
+        estimated_kbps *= crf_factor;
+
+        let preset_factor = get_preset_efficiency_factor(&config.preset);
+        estimated_kbps *= preset_factor;
+
+        estimated_kbps.max(200.0)
     };
 
-    let audio_kbps = if audio_only || metadata_ref.and_then(|m| m.audio_codec.as_ref()).is_some() {
-        config.audio_bitrate.parse::<f64>().unwrap_or(128.0)
-    } else {
-        0.0
+    let mut audio_kbps = 0.0;
+    if !audio_only && !config.selected_audio_tracks.is_empty() {
+        let track_bitrate = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
+        audio_kbps = track_bitrate * config.selected_audio_tracks.len() as f64;
+    } else if audio_only {
+        audio_kbps = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
+    } else if metadata_ref.and_then(|m| m.audio_codec.as_ref()).is_some() {
+        audio_kbps = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
+    }
+
+    let total_payload_kbps = video_kbps + audio_kbps;
+
+    // Muxing overhead usually adds ~0.5% - 2% depending on container (mp4/mkv low, ts high)
+    let overhead_factor = match config.container.as_str() {
+        "ts" | "m2ts" => 1.05, // Transport streams have high overhead
+        _ => 1.015,            // Standard MP4/MKV/MOV ~1.5%
     };
 
-    let total_kbps = video_kbps + audio_kbps;
+    let total_kbps_with_overhead = total_payload_kbps * overhead_factor;
 
     let size_mb = parse_duration_to_seconds(metadata_ref.and_then(|m| m.duration.as_ref()))
-        .map(|seconds| (total_kbps * seconds) / 8.0 / 1024.0);
+        .map(|seconds| (total_kbps_with_overhead * seconds) / 8.0 / 1024.0);
 
     Ok(OutputEstimate {
         video_kbps: video_kbps.round() as u32,
         audio_kbps: audio_kbps.round() as u32,
-        total_kbps: total_kbps.round() as u32,
+        total_kbps: total_kbps_with_overhead.round() as u32,
         size_mb,
     })
 }
