@@ -2,6 +2,10 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use tauri::{AppHandle, Emitter, command};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -13,7 +17,7 @@ use crate::estimation::{
     parse_probe_bitrate,
 };
 
-const MAX_CONCURRENCY: usize = 2;
+const DEFAULT_MAX_CONCURRENCY: usize = 2;
 
 #[derive(Debug, Error)]
 pub enum ConversionError {
@@ -58,12 +62,15 @@ enum ManagerMessage {
 
 pub struct ConversionManager {
     sender: mpsc::Sender<ManagerMessage>,
+    max_concurrency: Arc<AtomicUsize>,
 }
 
 impl ConversionManager {
     pub fn new(app: AppHandle) -> Self {
         let (tx, mut rx) = mpsc::channel(32);
         let tx_clone = tx.clone();
+        let max_concurrency = Arc::new(AtomicUsize::new(DEFAULT_MAX_CONCURRENCY));
+        let limiter = Arc::clone(&max_concurrency);
 
         tauri::async_runtime::spawn(async move {
             let mut queue: VecDeque<ConversionTask> = VecDeque::new();
@@ -78,6 +85,7 @@ impl ConversionManager {
                             &tx_clone,
                             &mut queue,
                             &mut active_tasks,
+                            Arc::clone(&limiter),
                         )
                         .await;
                     }
@@ -88,6 +96,7 @@ impl ConversionManager {
                             &tx_clone,
                             &mut queue,
                             &mut active_tasks,
+                            Arc::clone(&limiter),
                         )
                         .await;
                     }
@@ -99,6 +108,7 @@ impl ConversionManager {
                             &tx_clone,
                             &mut queue,
                             &mut active_tasks,
+                            Arc::clone(&limiter),
                         )
                         .await;
                     }
@@ -106,7 +116,10 @@ impl ConversionManager {
             }
         });
 
-        Self { sender: tx }
+        Self {
+            sender: tx,
+            max_concurrency,
+        }
     }
 
     async fn process_queue(
@@ -114,8 +127,11 @@ impl ConversionManager {
         tx: &mpsc::Sender<ManagerMessage>,
         queue: &mut VecDeque<ConversionTask>,
         active_tasks: &mut HashMap<String, ()>,
+        max_concurrency: Arc<AtomicUsize>,
     ) {
-        while active_tasks.len() < MAX_CONCURRENCY {
+        let limit = max_concurrency.load(Ordering::SeqCst).max(1);
+
+        while active_tasks.len() < limit {
             if let Some(task) = queue.pop_front() {
                 active_tasks.insert(task.id.clone(), ());
 
@@ -138,6 +154,20 @@ impl ConversionManager {
                 break;
             }
         }
+    }
+
+    pub fn current_max_concurrency(&self) -> usize {
+        self.max_concurrency.load(Ordering::SeqCst)
+    }
+
+    pub fn update_max_concurrency(&self, value: usize) -> Result<(), ConversionError> {
+        if value == 0 {
+            return Err(ConversionError::InvalidInput(
+                "Max concurrency must be at least 1".to_string(),
+            ));
+        }
+        self.max_concurrency.store(value, Ordering::SeqCst);
+        Ok(())
     }
 }
 
@@ -621,6 +651,21 @@ pub async fn probe_media(
     }
 
     Ok(metadata)
+}
+
+#[command]
+pub fn get_max_concurrency(
+    manager: tauri::State<'_, ConversionManager>,
+) -> Result<usize, ConversionError> {
+    Ok(manager.current_max_concurrency())
+}
+
+#[command]
+pub fn set_max_concurrency(
+    manager: tauri::State<'_, ConversionManager>,
+    value: usize,
+) -> Result<(), ConversionError> {
+    manager.update_max_concurrency(value)
 }
 
 #[cfg(test)]

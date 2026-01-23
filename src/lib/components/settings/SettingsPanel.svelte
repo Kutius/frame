@@ -12,13 +12,15 @@
 	import PresetsTab from './tabs/PresetsTab.svelte';
 	import VideoTab from './tabs/VideoTab.svelte';
 	import AudioTab from './tabs/AudioTab.svelte';
+	import AppTab from './tabs/AppTab.svelte';
 
 	const TABS = [
 		{ id: 'source', label: 'Source' },
 		{ id: 'output', label: 'Output' },
 		{ id: 'video', label: 'Video' },
 		{ id: 'audio', label: 'Audio' },
-		{ id: 'presets', label: 'Presets' }
+		{ id: 'presets', label: 'Presets' },
+		{ id: 'app', label: 'App' }
 	] as const;
 	type TabId = (typeof TABS)[number]['id'];
 
@@ -34,7 +36,9 @@
 		onUpdateOutputName,
 		metadata,
 		metadataStatus = 'idle',
-		metadataError
+		metadataError,
+		maxConcurrency = 2,
+		onUpdateMaxConcurrency
 	}: {
 		config: ConversionConfig;
 		onUpdate: (newConfig: Partial<ConversionConfig>) => void;
@@ -48,6 +52,8 @@
 		metadata?: SourceMetadata;
 		metadataStatus?: MetadataStatus;
 		metadataError?: string;
+		maxConcurrency?: number;
+		onUpdateMaxConcurrency?: (value: number) => void | Promise<void>;
 	} = $props();
 
 	let activeTab = $state<TabId>('source');
@@ -61,7 +67,7 @@
 				<button
 					disabled={isVideoDisabled}
 					class={cn(
-						'text-[10px]  font-medium tracking-widest uppercase transition-all',
+						'text-[10px] font-medium tracking-widest uppercase transition-all',
 						activeTab === tab.id ? 'text-ds-blue-600' : 'text-gray-alpha-600 hover:text-foreground',
 						isVideoDisabled && 'cursor-not-allowed opacity-50'
 					)}
@@ -82,8 +88,10 @@
 			<PresetsTab {config} {disabled} {presets} {onApplyPreset} {onSavePreset} {onDeletePreset} />
 		{:else if activeTab === 'video'}
 			<VideoTab {config} {disabled} {onUpdate} />
-		{:else}
+		{:else if activeTab === 'audio'}
 			<AudioTab {config} {disabled} {onUpdate} {metadata} />
+		{:else}
+			<AppTab {maxConcurrency} {disabled} onUpdate={onUpdateMaxConcurrency!} />
 		{/if}
 	</div>
 </div>

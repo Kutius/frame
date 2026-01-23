@@ -21,6 +21,7 @@
 		setupConversionListeners
 	} from '$lib/services/conversion';
 	import { probeMedia } from '$lib/services/media';
+	import { loadInitialMaxConcurrency, persistMaxConcurrency } from '$lib/services/settings';
 	import {
 		DEFAULT_PRESETS,
 		loadCustomPresets,
@@ -34,9 +35,9 @@
 	let selectedFileId = $state<string | null>(null);
 	let isProcessing = $state(false);
 	let customPresets = $state<PresetDefinition[]>([]);
-
-	let activeView = $state<'dashboard' | 'logs'>('dashboard');
-	let logs = $state<Record<string, string[]>>({});
+	let maxConcurrencySetting = $state(2);
+	
+	let activeView = $state<'dashboard' | 'logs'>('dashboard');	let logs = $state<Record<string, string[]>>({});
 
 	let selectedFile = $derived(files.find((f) => f.id === selectedFileId));
 	let totalSize = $derived(files.reduce((acc, curr) => acc + curr.size, 0));
@@ -45,6 +46,11 @@
 
 	onMount(async () => {
 		customPresets = await loadCustomPresets();
+		try {
+			maxConcurrencySetting = await loadInitialMaxConcurrency();
+		} catch (error) {
+			console.error('Failed to load concurrency settings', error);
+		}
 	});
 
 	function createInitialConfig(): ConversionConfig {
@@ -54,6 +60,17 @@
 	function deriveOutputName(fileName: string): string {
 		const base = fileName.replace(/\.[^/.]+$/, '');
 		return base ? `${base}_converted` : 'output_converted';
+	}
+
+	async function handleUpdateMaxConcurrency(value: number) {
+		if (value < 1) return;
+
+		try {
+			await persistMaxConcurrency(value);
+			maxConcurrencySetting = value;
+		} catch (error) {
+			console.error('Failed to persist max concurrency', error);
+		}
 	}
 
 	function applyPresetToSelection(preset: PresetDefinition) {
@@ -308,6 +325,7 @@
 		onChangeView={(v) => (activeView = v)}
 		onAddFile={handleAddFile}
 		onStartConversion={startConversion}
+		onOpenSettings={() => {}}
 	/>
 
 	<div class="relative flex-1 overflow-hidden p-4">
@@ -343,6 +361,8 @@
 								onDeletePreset={handleDeletePreset}
 								disabled={selectedFile.status === FileStatus.CONVERTING ||
 									selectedFile.status === FileStatus.COMPLETED}
+								maxConcurrency={maxConcurrencySetting}
+								onUpdateMaxConcurrency={handleUpdateMaxConcurrency}
 							/>
 						{:else}
 							<EmptySelection />

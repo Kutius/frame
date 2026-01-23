@@ -34,6 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             conversion::queue_conversion,
             conversion::probe_media,
+            conversion::get_max_concurrency,
+            conversion::set_max_concurrency,
             estimation::estimate_output
         ])
         .run(tauri::generate_context!())
