@@ -29,7 +29,6 @@
 			value={outputName}
 			oninput={(e) => onUpdateOutputName?.(e.currentTarget.value)}
 			placeholder="my_render_final"
-			class="placeholder:uppercase"
 			{disabled}
 		/>
 		<p class="text-gray-alpha-600 text-[10px] tracking-wide uppercase">

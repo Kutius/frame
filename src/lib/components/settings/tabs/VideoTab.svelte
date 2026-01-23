@@ -17,6 +17,18 @@
 		{ id: 'h264_nvenc', label: 'H.264 (NVIDIA)' }
 	] as const;
 
+	const PRESETS = [
+		{ id: 'ultrafast', label: 'Ultrafast', desc: 'Largest file, fastest conversion' },
+		{ id: 'superfast', label: 'Superfast', desc: 'Very large file' },
+		{ id: 'veryfast', label: 'Veryfast', desc: 'Large file' },
+		{ id: 'faster', label: 'Faster', desc: 'Moderately large file' },
+		{ id: 'fast', label: 'Fast', desc: 'Slightly larger file' },
+		{ id: 'medium', label: 'Medium', desc: 'Balanced' },
+		{ id: 'slow', label: 'Slow', desc: 'Better compression' },
+		{ id: 'slower', label: 'Slower', desc: 'High compression' },
+		{ id: 'veryslow', label: 'Veryslow', desc: 'Smallest file, slowest conversion' }
+	] as const;
+
 	const SCALING_ALGOS = [
 		{ id: 'bicubic', label: 'Bicubic' },
 		{ id: 'lanczos', label: 'Lanczos' },
@@ -129,6 +141,22 @@
 				>
 					<span>{codec.id}</span>
 					<span class="text-[9px] opacity-50">{codec.label}</span>
+				</ListItem>
+			{/each}
+		</div>
+	</div>
+
+	<div class="space-y-3 pt-2">
+		<Label variant="section">Encoding Speed</Label>
+		<div class="grid grid-cols-1 gap-1.5">
+			{#each PRESETS as preset (preset.id)}
+				<ListItem
+					selected={config.preset === preset.id}
+					onclick={() => onUpdate({ preset: preset.id })}
+					{disabled}
+				>
+					<span>{preset.label}</span>
+					<span class="text-[9px] opacity-50">{preset.desc}</span>
 				</ListItem>
 			{/each}
 		</div>
