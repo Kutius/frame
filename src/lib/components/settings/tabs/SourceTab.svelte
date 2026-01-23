@@ -17,24 +17,63 @@
 
 	function formatDuration(raw?: string): string {
 		if (!raw) return '—';
-		const seconds = parseFloat(raw);
-		if (isNaN(seconds)) return raw;
 
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		const s = Math.floor(seconds % 60);
+		const timeMatch = raw.match(/^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/);
+		let secondsValue: number | null = null;
+
+		if (timeMatch) {
+			const [, hh, mm, ss, cs] = timeMatch;
+			secondsValue =
+				parseInt(hh, 10) * 3600 +
+				parseInt(mm, 10) * 60 +
+				parseInt(ss, 10) +
+				(cs ? parseInt(cs, 10) / Math.pow(10, cs.length) : 0);
+		} else {
+			const numeric = Number(raw);
+			if (Number.isFinite(numeric)) {
+				secondsValue = numeric;
+			}
+		}
+
+		if (secondsValue === null) return raw;
+
+		const h = Math.floor(secondsValue / 3600);
+		const m = Math.floor((secondsValue % 3600) / 60);
+		const s = Math.floor(secondsValue % 60);
 
 		const pad = (n: number) => n.toString().padStart(2, '0');
 		return `${pad(h)}:${pad(m)}:${pad(s)}`;
 	}
 
-	function formatBitrate(raw?: string): string {
-		if (!raw) return '—';
-		const bps = parseFloat(raw);
-		if (isNaN(bps)) return raw;
+	function formatResolution(meta?: SourceMetadata): string {
+		if (meta?.width && meta?.height) {
+			return `${meta.width}×${meta.height}`;
+		}
+		return meta?.resolution ?? '—';
+	}
 
+	function formatFrameRate(value?: number): string {
+		if (!value || value <= 0) return '—';
+		const formatted = value % 1 === 0 ? value.toFixed(0) : value.toFixed(3).replace(/\.?0+$/, '');
+		return `${formatted} fps`;
+	}
+
+	function formatBitrateKbps(value?: number): string {
+		if (!value || value <= 0) return '—';
+		if (value >= 1000) {
+			return `${(value / 1000).toFixed(2).replace(/\.?0+$/, '')} Mb/s`;
+		}
+		return `${Math.round(value)} kb/s`;
+	}
+
+	function formatContainerBitrate(raw?: string): string {
+		if (!raw) return '—';
+		const bps = Number(raw);
+		if (!Number.isFinite(bps) || bps <= 0) {
+			return raw;
+		}
 		if (bps >= 1_000_000) {
-			return `${(bps / 1_000_000).toFixed(1)} Mb/s`;
+			return `${(bps / 1_000_000).toFixed(2).replace(/\.?0+$/, '')} Mb/s`;
 		}
 		return `${Math.round(bps / 1_000)} kb/s`;
 	}
@@ -57,14 +96,24 @@
 			<div class="grid grid-cols-2 gap-2 text-[11px] tracking-wide uppercase">
 				<div class="text-gray-alpha-600">Duration</div>
 				<div>{formatDuration(metadata.duration)}</div>
+
+				<div class="text-gray-alpha-600">Frame Rate</div>
+				<div>{formatFrameRate(metadata.frameRate)}</div>
+
+				<div class="text-gray-alpha-600">Dimensions</div>
+				<div>{formatResolution(metadata)}</div>
+
 				<div class="text-gray-alpha-600">Video Codec</div>
 				<div>{display(metadata.videoCodec)}</div>
-				<div class="text-gray-alpha-600">Resolution</div>
-				<div>{display(metadata.resolution)}</div>
+
+				<div class="text-gray-alpha-600">Video Bitrate</div>
+				<div>{formatBitrateKbps(metadata.videoBitrateKbps)}</div>
+
 				<div class="text-gray-alpha-600">Audio Codec</div>
 				<div>{display(metadata.audioCodec)}</div>
-				<div class="text-gray-alpha-600">Bitrate</div>
-				<div>{formatBitrate(metadata.bitrate)}</div>
+
+				<div class="text-gray-alpha-600">Container Bitrate</div>
+				<div>{formatContainerBitrate(metadata.bitrate)}</div>
 			</div>
 		</div>
 	{:else}

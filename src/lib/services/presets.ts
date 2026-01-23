@@ -1,7 +1,7 @@
 import { Store } from '@tauri-apps/plugin-store';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { ConversionConfig, PresetDefinition } from '$lib/types';
+import type { ConversionConfig, PresetDefinition } from '../types';
 
 const STORE_PATH = 'presets.dat';
 const PRESETS_KEY = 'presets';

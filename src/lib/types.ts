@@ -12,6 +12,7 @@ export interface AudioTrack {
 	channels: string;
 	language?: string;
 	label?: string;
+	bitrateKbps?: number;
 }
 
 export interface ConversionConfig {
@@ -38,6 +39,10 @@ export interface SourceMetadata {
 	videoCodec?: string;
 	audioCodec?: string;
 	resolution?: string;
+	frameRate?: number;
+	width?: number;
+	height?: number;
+	videoBitrateKbps?: number;
 	audioTracks?: AudioTrack[];
 }
 
@@ -62,15 +67,6 @@ export interface PresetDefinition {
 	name: string;
 	config: ConversionConfig;
 	builtIn?: boolean;
-}
-
-export interface SourceMetadata {
-	duration?: string;
-	bitrate?: string;
-	videoCodec?: string;
-	audioCodec?: string;
-	resolution?: string;
-	audioTracks?: AudioTrack[];
 }
 
 export type MetadataStatus = 'idle' | 'loading' | 'ready' | 'error';

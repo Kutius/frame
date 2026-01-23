@@ -8,6 +8,11 @@ use tauri_plugin_shell::process::CommandEvent;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
+use crate::estimation::{
+    AudioTrack, ProbeMetadata, is_audio_only_container, parse_frame_rate_string,
+    parse_probe_bitrate,
+};
+
 const MAX_CONCURRENCY: usize = 2;
 
 #[derive(Debug, Error)]
@@ -180,36 +185,6 @@ struct LogPayload {
     line: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AudioTrack {
-    index: u32,
-    codec: String,
-    channels: String,
-    language: Option<String>,
-    label: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ProbeMetadata {
-    duration: Option<String>,
-    bitrate: Option<String>,
-    video_codec: Option<String>,
-    audio_codec: Option<String>,
-    resolution: Option<String>,
-    audio_tracks: Vec<AudioTrack>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OutputEstimate {
-    video_kbps: u32,
-    audio_kbps: u32,
-    total_kbps: u32,
-    size_mb: Option<f64>,
-}
-
 #[derive(Deserialize)]
 struct FfprobeOutput {
     streams: Vec<FfprobeStream>,
@@ -224,6 +199,8 @@ struct FfprobeStream {
     width: Option<i32>,
     height: Option<i32>,
     channels: Option<i32>,
+    bit_rate: Option<String>,
+    avg_frame_rate: Option<String>,
     #[allow(dead_code)]
     channel_layout: Option<String>,
     tags: Option<FfprobeTags>,
@@ -585,8 +562,21 @@ pub async fn probe_media(
 
     if let Some(video_stream) = probe_data.streams.iter().find(|s| s.codec_type == "video") {
         metadata.video_codec = video_stream.codec_name.clone();
+
         if let (Some(w), Some(h)) = (video_stream.width, video_stream.height) {
-            metadata.resolution = Some(format!("{}x{}", w, h));
+            if w > 0 && h > 0 {
+                metadata.width = Some(w as u32);
+                metadata.height = Some(h as u32);
+                metadata.resolution = Some(format!("{}x{}", w, h));
+            }
+        }
+
+        if metadata.frame_rate.is_none() {
+            metadata.frame_rate = parse_frame_rate_string(video_stream.avg_frame_rate.as_deref());
+        }
+
+        if metadata.video_bitrate_kbps.is_none() {
+            metadata.video_bitrate_kbps = parse_probe_bitrate(video_stream.bit_rate.as_deref());
         }
     }
 
@@ -598,6 +588,8 @@ pub async fn probe_media(
         let label = stream.tags.as_ref().and_then(|t| t.title.clone());
         let language = stream.tags.as_ref().and_then(|t| t.language.clone());
 
+        let track_bitrate = parse_probe_bitrate(stream.bit_rate.as_deref());
+
         metadata.audio_tracks.push(AudioTrack {
             index: stream.index,
             codec: stream.codec_name.clone().unwrap_or("unknown".to_string()),
@@ -607,6 +599,7 @@ pub async fn probe_media(
                 .unwrap_or("?".to_string()),
             label,
             language,
+            bitrate_kbps: track_bitrate,
         });
     }
 
@@ -614,212 +607,25 @@ pub async fn probe_media(
         metadata.audio_codec = Some(first_audio.codec.clone());
     }
 
+    if metadata.video_bitrate_kbps.is_none() {
+        if let Some(container_kbps) = parse_probe_bitrate(metadata.bitrate.as_deref()) {
+            let audio_sum: f64 = metadata
+                .audio_tracks
+                .iter()
+                .filter_map(|track| track.bitrate_kbps)
+                .sum();
+            if container_kbps > audio_sum {
+                metadata.video_bitrate_kbps = Some(container_kbps - audio_sum);
+            }
+        }
+    }
+
     Ok(metadata)
-}
-
-fn parse_duration_to_seconds(duration: Option<&String>) -> Option<f64> {
-    let duration_str = duration?;
-    if let Ok(seconds) = duration_str.parse::<f64>() {
-        return Some(seconds);
-    }
-
-    let parts: Vec<&str> = duration_str.split([':', '.']).collect();
-    if parts.len() != 4 {
-        return None;
-    }
-    let hours: f64 = parts[0].parse().ok()?;
-    let minutes: f64 = parts[1].parse().ok()?;
-    let seconds: f64 = parts[2].parse().ok()?;
-    let centiseconds: f64 = parts[3].parse().ok()?;
-    Some(hours * 3600.0 + minutes * 60.0 + seconds + centiseconds / 100.0)
-}
-
-fn parse_resolution_height(resolution: Option<&String>) -> Option<i32> {
-    let resolution = resolution?;
-    let parts: Vec<&str> = resolution.split('x').collect();
-    if parts.len() != 2 {
-        return None;
-    }
-    parts[1].parse().ok()
-}
-
-fn infer_target_height(config: &ConversionConfig, metadata: Option<&ProbeMetadata>) -> i32 {
-    if config.resolution == "custom" {
-        return config
-            .custom_height
-            .as_deref()
-            .and_then(|h| h.parse().ok())
-            .unwrap_or(720);
-    }
-    match config.resolution.as_str() {
-        "480p" => 480,
-        "720p" => 720,
-        "1080p" => 1080,
-        "original" => {
-            parse_resolution_height(metadata.and_then(|m| m.resolution.as_ref())).unwrap_or(720)
-        }
-        _ => 720,
-    }
-}
-
-fn base_video_bitrate(height: i32) -> f64 {
-    if height >= 2160 {
-        30000.0
-    } else if height >= 1440 {
-        14000.0
-    } else if height >= 1080 {
-        7000.0
-    } else if height >= 720 {
-        4000.0
-    } else if height >= 480 {
-        2000.0
-    } else {
-        1000.0
-    }
-}
-
-fn get_codec_base_crf(codec: &str) -> f64 {
-    match codec.to_lowercase().as_str() {
-        "libx265" | "h265" | "hevc" => 28.0,
-        "libvpx-vp9" | "vp9" => 31.0,
-        "libaom-av1" | "av1" | "libsvtav1" => 32.0,
-        _ => 23.0,
-    }
-}
-
-fn get_preset_efficiency_factor(preset: &str) -> f64 {
-    match preset.to_lowercase().as_str() {
-        "ultrafast" => 1.50,
-        "superfast" => 1.35,
-        "veryfast" => 1.20,
-        "faster" => 1.12,
-        "fast" => 1.05,
-        "medium" => 1.00,
-        "slow" => 0.92,
-        "slower" => 0.82,
-        "veryslow" => 0.70,
-        _ => 1.00,
-    }
-}
-
-fn codec_efficiency_scale(codec: &str) -> f64 {
-    match codec.to_lowercase().as_str() {
-        "libx265" | "h265" | "hevc" => 0.65,
-        "libvpx-vp9" | "vp9" => 0.70,
-        "libaom-av1" | "av1" | "libsvtav1" => 0.55,
-        "prores" => 4.5,
-        _ => 1.0,
-    }
-}
-
-fn parse_source_bitrate(metadata: Option<&ProbeMetadata>) -> Option<f64> {
-    let raw = metadata?.bitrate.as_ref()?;
-    let digits: String = raw
-        .chars()
-        .filter(|c| c.is_ascii_digit() || *c == '.')
-        .collect();
-    if digits.is_empty() {
-        return None;
-    }
-    let value = digits.parse::<f64>().ok()?;
-
-    if value > 100_000.0 {
-        Some(value / 1000.0)
-    } else {
-        Some(value)
-    }
-}
-
-fn is_audio_only_container(container: &str) -> bool {
-    matches!(
-        container.to_lowercase().as_str(),
-        "mp3" | "wav" | "flac" | "aac" | "m4a"
-    )
-}
-
-#[command]
-pub async fn estimate_output(
-    config: ConversionConfig,
-    metadata: Option<ProbeMetadata>,
-) -> Result<OutputEstimate, ConversionError> {
-    let metadata_ref = metadata.as_ref();
-    let audio_only = is_audio_only_container(&config.container);
-
-    let video_kbps = if audio_only {
-        0.0
-    } else if config.video_bitrate_mode == "bitrate" {
-        config.video_bitrate.parse::<f64>().unwrap_or(0.0)
-    } else {
-        let target_height = infer_target_height(&config, metadata_ref);
-        let source_height =
-            parse_resolution_height(metadata_ref.and_then(|m| m.resolution.as_ref()))
-                .unwrap_or(target_height);
-
-        let mut estimated_kbps = if let Some(source_kbps) = parse_source_bitrate(metadata_ref) {
-            let scale_factor = (target_height as f64 / source_height as f64).powf(1.7);
-            source_kbps * scale_factor
-        } else {
-            base_video_bitrate(target_height)
-        };
-
-        let target_codec_factor = codec_efficiency_scale(&config.video_codec);
-
-        if parse_source_bitrate(metadata_ref).is_none() {
-            estimated_kbps *= target_codec_factor;
-        } else if let Some(source_codec) = metadata_ref.and_then(|m| m.video_codec.as_ref()) {
-            let source_factor = codec_efficiency_scale(source_codec);
-            estimated_kbps *= target_codec_factor / source_factor;
-        }
-
-        let base_crf = get_codec_base_crf(&config.video_codec);
-        let crf_diff = base_crf - config.crf as f64;
-
-        // Use 1.88 instead of 2.0 to dampen the exponential growth.
-        let crf_factor = 1.88f64.powf(crf_diff / 6.0);
-
-        estimated_kbps *= crf_factor;
-
-        let preset_factor = get_preset_efficiency_factor(&config.preset);
-        estimated_kbps *= preset_factor;
-
-        estimated_kbps.max(200.0)
-    };
-
-    let mut audio_kbps = 0.0;
-    if !audio_only && !config.selected_audio_tracks.is_empty() {
-        let track_bitrate = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
-        audio_kbps = track_bitrate * config.selected_audio_tracks.len() as f64;
-    } else if audio_only {
-        audio_kbps = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
-    } else if metadata_ref.and_then(|m| m.audio_codec.as_ref()).is_some() {
-        audio_kbps = config.audio_bitrate.parse::<f64>().unwrap_or(128.0);
-    }
-
-    let total_payload_kbps = video_kbps + audio_kbps;
-
-    // Muxing overhead usually adds ~0.5% - 2% depending on container (mp4/mkv low, ts high)
-    let overhead_factor = match config.container.as_str() {
-        "ts" | "m2ts" => 1.05, // Transport streams have high overhead
-        _ => 1.015,            // Standard MP4/MKV/MOV ~1.5%
-    };
-
-    let total_kbps_with_overhead = total_payload_kbps * overhead_factor;
-
-    let size_mb = parse_duration_to_seconds(metadata_ref.and_then(|m| m.duration.as_ref()))
-        .map(|seconds| (total_kbps_with_overhead * seconds) / 8.0 / 1024.0);
-
-    Ok(OutputEstimate {
-        video_kbps: video_kbps.round() as u32,
-        audio_kbps: audio_kbps.round() as u32,
-        total_kbps: total_kbps_with_overhead.round() as u32,
-        size_mb,
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tauri::async_runtime;
 
     fn contains_args(args: &[String], expected: &[&str]) -> bool {
         expected.iter().all(|e| args.iter().any(|a| a == e))
@@ -1055,17 +861,6 @@ mod tests {
         assert!(contains_args(&args, &["-c:v", "h264_videotoolbox"]));
     }
 
-    fn sample_metadata() -> ProbeMetadata {
-        ProbeMetadata {
-            duration: Some("00:01:00.00".into()),
-            bitrate: Some("4000 kb/s".into()),
-            video_codec: Some("h264".into()),
-            audio_codec: Some("aac".into()),
-            resolution: Some("1920x1080".into()),
-            audio_tracks: vec![],
-        }
-    }
-
     #[test]
     fn test_scaling_algorithms() {
         let algos = vec![
@@ -1089,50 +884,5 @@ mod tests {
                 vf_arg
             );
         }
-    }
-
-    #[test]
-    fn test_estimate_output_standard_video() {
-        let config = sample_config("mp4");
-        let metadata = sample_metadata();
-
-        let estimate = async_runtime::block_on(async {
-            estimate_output(config, Some(metadata)).await.unwrap()
-        });
-
-        assert_eq!(estimate.video_kbps, 4000);
-        assert_eq!(estimate.audio_kbps, 128);
-        assert_eq!(estimate.total_kbps, 4128);
-        let size = estimate.size_mb.expect("size should exist");
-        assert!((size - 30.2).abs() < 0.5);
-    }
-
-    #[test]
-    fn test_estimate_output_without_audio_stream() {
-        let config = sample_config("mp4");
-        let mut metadata = sample_metadata();
-        metadata.audio_codec = None;
-
-        let estimate = async_runtime::block_on(async {
-            estimate_output(config, Some(metadata)).await.unwrap()
-        });
-
-        assert_eq!(estimate.audio_kbps, 0);
-        assert!(estimate.video_kbps > 0);
-    }
-
-    #[test]
-    fn test_estimate_output_audio_only_container() {
-        let mut config = sample_config("mp3");
-        config.audio_codec = "mp3".into();
-        let metadata = sample_metadata();
-
-        let estimate = async_runtime::block_on(async {
-            estimate_output(config, Some(metadata)).await.unwrap()
-        });
-
-        assert_eq!(estimate.video_kbps, 0);
-        assert_eq!(estimate.audio_kbps, 128);
-        assert_eq!(estimate.total_kbps, 128);
     }
 }

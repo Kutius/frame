@@ -42,6 +42,16 @@
 			onUpdate({ selectedAudioTracks: [...current, index] });
 		}
 	}
+
+	function formatTrackBitrate(value?: number) {
+		if (!value || value <= 0) {
+			return null;
+		}
+		if (value >= 1000) {
+			return `${(value / 1000).toFixed(2).replace(/\.?0+$/, '')} Mb/s`;
+		}
+		return `${Math.round(value)} kb/s`;
+	}
 </script>
 
 <div class="space-y-4">
@@ -104,6 +114,7 @@
 			<div class="grid grid-cols-1 gap-2">
 				{#each metadata.audioTracks as track (track.index)}
 					{@const isSelected = (config.selectedAudioTracks || []).includes(track.index)}
+					{@const trackBitrate = formatTrackBitrate(track.bitrateKbps)}
 					<Button
 						variant={isSelected ? 'selected' : 'outline'}
 						onclick={() => toggleTrack(track.index)}
@@ -128,6 +139,10 @@
 									{#if track.label}
 										<span class="mx-0.5">•</span>
 										{track.label}{/if}
+									{#if trackBitrate}
+										<span class="mx-0.5">•</span>
+										{trackBitrate}
+									{/if}
 								</div>
 							</div>
 						</div>

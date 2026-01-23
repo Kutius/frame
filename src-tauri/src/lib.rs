@@ -1,4 +1,5 @@
 mod conversion;
+mod estimation;
 use tauri::Manager;
 use tauri_plugin_store::Builder as StoreBuilder;
 use window_vibrancy::{NSVisualEffectMaterial, apply_mica, apply_vibrancy};
@@ -21,7 +22,6 @@ pub fn run() {
 
             Ok(())
         })
-        .plugin(tauri_plugin_prevent_default::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -31,7 +31,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             conversion::queue_conversion,
             conversion::probe_media,
-            conversion::estimate_output
+            estimation::estimate_output
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
