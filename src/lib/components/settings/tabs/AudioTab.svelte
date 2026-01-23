@@ -65,9 +65,13 @@
 				<Label for="audio-bitrate">Bitrate (kbps)</Label>
 				<Input
 					id="audio-bitrate"
-					type="number"
+					type="text"
+					inputmode="numeric"
 					value={config.audioBitrate}
-					oninput={(e) => onUpdate({ audioBitrate: e.currentTarget.value })}
+					oninput={(e) => {
+						const value = e.currentTarget.value.replace(/[^0-9]/g, "");
+						onUpdate({ audioBitrate: value });
+					}}
 					{disabled}
 				/>
 			</div>
