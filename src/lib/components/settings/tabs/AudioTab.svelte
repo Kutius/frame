@@ -69,7 +69,7 @@
 					inputmode="numeric"
 					value={config.audioBitrate}
 					oninput={(e) => {
-						const value = e.currentTarget.value.replace(/[^0-9]/g, "");
+						const value = e.currentTarget.value.replace(/[^0-9]/g, '');
 						onUpdate({ audioBitrate: value });
 					}}
 					{disabled}

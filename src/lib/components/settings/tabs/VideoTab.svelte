@@ -75,30 +75,30 @@
 				<div class="flex flex-col gap-1">
 					<Label for="width">Width</Label>
 					<Input
-										id="width"
-										type="text"
-										inputmode="numeric"
-										placeholder="1920"
-										value={config.customWidth}
-										oninput={(e) => {
-											const value = e.currentTarget.value.replace(/[^0-9]/g, "");
-											onUpdate({ customWidth: value });
-										}}
+						id="width"
+						type="text"
+						inputmode="numeric"
+						placeholder="1920"
+						value={config.customWidth}
+						oninput={(e) => {
+							const value = e.currentTarget.value.replace(/[^0-9]/g, '');
+							onUpdate({ customWidth: value });
+						}}
 						{disabled}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
 					<Label for="height">Height</Label>
 					<Input
-										id="height"
-										type="text"
-										inputmode="numeric"
-										placeholder="1080"
-										value={config.customHeight}
-										oninput={(e) => {
-											const value = e.currentTarget.value.replace(/[^0-9]/g, "");
-											onUpdate({ customHeight: value });
-										}}
+						id="height"
+						type="text"
+						inputmode="numeric"
+						placeholder="1080"
+						value={config.customHeight}
+						oninput={(e) => {
+							const value = e.currentTarget.value.replace(/[^0-9]/g, '');
+							onUpdate({ customHeight: value });
+						}}
 						{disabled}
 					/>
 				</div>
@@ -229,7 +229,7 @@
 					inputmode="numeric"
 					value={config.videoBitrate}
 					oninput={(e) => {
-						const value = e.currentTarget.value.replace(/[^0-9]/g, "");
+						const value = e.currentTarget.value.replace(/[^0-9]/g, '');
 						onUpdate({ videoBitrate: value });
 					}}
 					{disabled}

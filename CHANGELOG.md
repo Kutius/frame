@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-beta.1] - 2026-01-22
 
 ### Added
+
 - **Cross-platform support:** Added builds for Windows x86_64, Linux x86_64, and Linux aarch64.
 - **Selective conversion:** Ability to convert only selected assets instead of processing the entire batch.
 
 ### Changed
+
 - **UI:** Enhanced visual alignment in the main assets table.
 - **License:** Project license changed to GPLv3.
 - **Architecture:** Refactored views into reusable components for better maintainability.
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-01-19
 
 ### Added
+
 - Initial public release of Frame.
 - Native macOS UI for FFmpeg-based media conversion.
 - **Container Support:** MP4, MKV, WebM, MOV, and MP3.
