@@ -1,5 +1,4 @@
 mod conversion;
-mod estimation;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::Builder as StoreBuilder;
 #[cfg(target_os = "windows")]
@@ -84,7 +83,6 @@ pub fn run() {
             conversion::probe_media,
             conversion::get_max_concurrency,
             conversion::set_max_concurrency,
-            estimation::estimate_output,
             close_splash
         ])
         .run(tauri::generate_context!())

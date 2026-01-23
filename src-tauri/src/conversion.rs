@@ -12,12 +12,77 @@ use tauri_plugin_shell::process::CommandEvent;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
-use crate::estimation::{
-    AudioTrack, ProbeMetadata, is_audio_only_container, parse_frame_rate_string,
-    parse_probe_bitrate,
-};
+
 
 const DEFAULT_MAX_CONCURRENCY: usize = 2;
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioTrack {
+    pub index: u32,
+    pub codec: String,
+    pub channels: String,
+    pub language: Option<String>,
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bitrate_kbps: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeMetadata {
+    pub duration: Option<String>,
+    pub bitrate: Option<String>,
+    pub video_codec: Option<String>,
+    pub audio_codec: Option<String>,
+    pub resolution: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame_rate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_bitrate_kbps: Option<f64>,
+    pub audio_tracks: Vec<AudioTrack>,
+}
+
+pub(crate) fn parse_frame_rate_string(value: Option<&str>) -> Option<f64> {
+    let value = value?.trim();
+    if value.is_empty() || value.eq_ignore_ascii_case("n/a") {
+        return None;
+    }
+
+    if let Some((num, den)) = value.split_once('/') {
+        let numerator: f64 = num.trim().parse().ok()?;
+        let denominator: f64 = den.trim().parse().ok()?;
+        if denominator == 0.0 {
+            return None;
+        }
+        Some(numerator / denominator)
+    } else {
+        value.parse::<f64>().ok()
+    }
+}
+
+pub(crate) fn parse_probe_bitrate(raw: Option<&str>) -> Option<f64> {
+    let raw = raw?.trim();
+    if raw.eq_ignore_ascii_case("n/a") || raw.is_empty() {
+        return None;
+    }
+    let numeric = raw.parse::<f64>().ok()?;
+    if numeric <= 0.0 {
+        return None;
+    }
+    Some(numeric / 1000.0)
+}
+
+pub(crate) fn is_audio_only_container(container: &str) -> bool {
+    matches!(
+        container.to_lowercase().as_str(),
+        "mp3" | "wav" | "flac" | "aac" | "m4a"
+    )
+}
 
 #[derive(Debug, Error)]
 pub enum ConversionError {

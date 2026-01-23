@@ -10,7 +10,6 @@
 	import FileList from '$lib/components/FileList.svelte';
 	import SettingsPanel from '$lib/components/settings/SettingsPanel.svelte';
 	import EmptySelection from '$lib/components/EmptySelection.svelte';
-	import EstimatedOutputPanel from '$lib/components/EstimatedOutputPanel.svelte';
 	import {
 		type FileItem,
 		FileStatus,
@@ -351,7 +350,7 @@
 				/>
 
 				<div
-					class="col-span-12 grid h-full min-h-0 grid-rows-[minmax(0,1fr)_180px] gap-3 lg:col-span-4"
+					class="col-span-12 h-full min-h-0 lg:col-span-4"
 				>
 					<div
 						class="custom-scrollbar h-full min-h-0 overflow-y-auto rounded-lg border border-gray-alpha-100 bg-gray-alpha-100"
@@ -378,14 +377,6 @@
 						{:else}
 							<EmptySelection />
 						{/if}
-					</div>
-
-					<div class="h-full">
-						<EstimatedOutputPanel
-							config={selectedFile?.config}
-							metadata={selectedFile?.metadata}
-							metadataStatus={selectedFile?.metadataStatus}
-						/>
 					</div>
 				</div>
 			</div>
