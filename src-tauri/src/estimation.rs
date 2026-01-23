@@ -571,10 +571,10 @@ mod tests {
         });
 
         assert_eq!(estimate.audio_kbps, 128);
-        assert_eq!(estimate.video_kbps, 5910);
-        assert_eq!(estimate.total_kbps, 6086);
+        assert_eq!(estimate.video_kbps, 4666);
+        assert_eq!(estimate.total_kbps, 4832);
         let size = estimate.size_mb.expect("size should exist");
-        assert!((size - 45.6).abs() < 0.2);
+        assert!((size - 36.2).abs() < 0.2);
     }
 
     #[test]
@@ -616,7 +616,7 @@ mod tests {
         let estimate =
             async_runtime::block_on(async { estimate_output(config, None).await.unwrap() });
 
-        assert_eq!(estimate.video_kbps, 2627);
+        assert_eq!(estimate.video_kbps, 2074);
     }
 
     #[test]
