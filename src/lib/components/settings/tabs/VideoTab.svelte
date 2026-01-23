@@ -52,10 +52,6 @@
 		{ id: '60', label: '60 fps' }
 	] as const;
 
-	const isHardwareEncoder = $derived(
-		config.videoCodec === 'h264_videotoolbox' || config.videoCodec === 'h264_nvenc'
-	);
-
 	let {
 		config,
 		disabled = false,
@@ -65,6 +61,10 @@
 		disabled?: boolean;
 		onUpdate: (config: Partial<ConversionConfig>) => void;
 	} = $props();
+
+	const isHardwareEncoder = $derived(
+		config.videoCodec === 'h264_videotoolbox' || config.videoCodec === 'h264_nvenc'
+	);
 </script>
 
 <div class="space-y-4">
