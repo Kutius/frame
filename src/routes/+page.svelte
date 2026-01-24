@@ -47,22 +47,37 @@
 	let presets = $derived([...DEFAULT_PRESETS, ...customPresets] as PresetDefinition[]);
 	let selectedCount = $derived(files.filter((f) => f.isSelectedForConversion).length);
 
-	onMount(async () => {
-		customPresets = await loadCustomPresets();
-		try {
-			maxConcurrencySetting = await loadInitialMaxConcurrency();
-		} catch (error) {
-			console.error('Failed to load concurrency settings', error);
-		}
+	onMount(() => {
+		let unlistenDragDrop: (() => void) | undefined;
+		let mounted = true;
 
-		const unlistenDragDrop = await setupDragDrop();
+		(async () => {
+			customPresets = await loadCustomPresets();
+			try {
+				maxConcurrencySetting = await loadInitialMaxConcurrency();
+			} catch (error) {
+				console.error('Failed to load concurrency settings', error);
+			}
 
-		setTimeout(() => {
-			invoke('close_splash');
-		}, 1000);
+			if (mounted) {
+				const unlisten = await setupDragDrop();
+				if (mounted) {
+					unlistenDragDrop = unlisten;
+				} else {
+					unlisten();
+				}
+			}
+
+			setTimeout(() => {
+				if (mounted) invoke('close_splash');
+			}, 1000);
+		})();
 
 		return () => {
-			unlistenDragDrop();
+			mounted = false;
+			if (unlistenDragDrop) {
+				unlistenDragDrop();
+			}
 		};
 	});
 
