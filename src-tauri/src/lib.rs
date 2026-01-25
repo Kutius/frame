@@ -48,7 +48,7 @@ pub fn run() {
 
             #[cfg(target_os = "windows")]
             apply_mica(&window, Some(true))
-                .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
+                .expect("Unsupported platform! 'apply_mica' is only supported on Windows");
 
             let splash = WebviewWindowBuilder::new(app, "splash", WebviewUrl::App("splash".into()))
                 .title("Splash")
@@ -67,7 +67,7 @@ pub fn run() {
 
             #[cfg(target_os = "windows")]
             apply_mica(&splash, Some(true))
-                .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
+                .expect("Unsupported platform! 'apply_mica' is only supported on Windows");
 
             app.manage(conversion::ConversionManager::new(app.handle().clone()));
 
