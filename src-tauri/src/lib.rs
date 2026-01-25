@@ -1,4 +1,5 @@
 mod conversion;
+use tauri::window::Color;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::Builder as StoreBuilder;
 #[cfg(target_os = "windows")]
@@ -22,13 +23,14 @@ pub fn run() {
         .setup(|app| {
             let builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("")
+                    .title("Frame")
                     .inner_size(1200.0, 800.0)
                     .min_inner_size(1200.0, 800.0)
                     .resizable(true)
                     .fullscreen(false)
                     .decorations(false)
                     .visible(false)
+                    .background_color(Color(0, 0, 0, 0))
                     .transparent(true);
 
             let window = builder.build().unwrap();
@@ -48,6 +50,7 @@ pub fn run() {
                 .decorations(false)
                 .always_on_top(true)
                 .transparent(true)
+                .background_color(Color(0, 0, 0, 0))
                 .visible(false)
                 .build()
                 .unwrap();
