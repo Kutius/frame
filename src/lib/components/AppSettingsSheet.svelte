@@ -7,7 +7,13 @@
 	import { checkForAppUpdate } from '$lib/services/update';
 	import { updateStore } from '$lib/stores/update.svelte';
 	import Checkbox from './ui/Checkbox.svelte';
-	import { loadAutoUpdateCheck, persistAutoUpdateCheck } from '$lib/services/settings';
+	import Slider from './ui/Slider.svelte';
+	import {
+		loadAutoUpdateCheck,
+		persistAutoUpdateCheck,
+		persistWindowOpacity
+	} from '$lib/services/settings';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
 
 	let {
@@ -36,13 +42,20 @@
 	let isCheckingForUpdate = $state(false);
 	let checkStatus = $state('');
 	let autoUpdateCheck = $state(true);
+	let opacity = $state(themeStore.opacity);
 
 	onMount(async () => {
 		autoUpdateCheck = await loadAutoUpdateCheck();
+		opacity = themeStore.opacity;
 	});
 
 	$effect(() => {
 		persistAutoUpdateCheck(autoUpdateCheck);
+	});
+
+	$effect(() => {
+		themeStore.opacity = opacity;
+		persistWindowOpacity(opacity);
 	});
 
 	async function handleSave() {
@@ -136,16 +149,30 @@
 			<div class="flex flex-col space-y-3">
 				<div class="flex items-center gap-2">
 					<Checkbox id="auto-update-check" bind:checked={autoUpdateCheck} />
-					<Label for="auto-update-check" class="">Check on startup</Label>
+					<Label for="auto-update-check">Check for updates on startup</Label>
 				</div>
-				<div class="flex flex-col gap-2">
-					<Button variant="default" onclick={handleCheckUpdate} disabled={isCheckingForUpdate}>
-						{isCheckingForUpdate ? 'Checking...' : 'Check for Updates'}
-					</Button>
-					{#if checkStatus}
-						<span class="text-[10px] text-ds-blue-600">{checkStatus}</span>
-					{/if}
+				<Button
+					variant="outline"
+					class="w-full justify-start"
+					onclick={handleCheckUpdate}
+					disabled={isCheckingForUpdate}
+				>
+					{isCheckingForUpdate ? 'Checking...' : 'Check for Updates'}
+				</Button>
+				{#if checkStatus}
+					<span class="text-[10px] text-ds-blue-600">{checkStatus}</span>
+				{/if}
+			</div>
+		</div>
+
+		<div class="space-y-4">
+			<Label variant="section">Visuals</Label>
+			<div class="space-y-3">
+				<div class="flex items-center justify-between">
+					<Label for="opacity-slider">Window Tint</Label>
+					<span class="text-gray-alpha-600 font-mono text-[10px]">{opacity}%</span>
 				</div>
+				<Slider id="opacity-slider" min={20} max={100} step={1} bind:value={opacity} />
 			</div>
 		</div>
 	</div>
