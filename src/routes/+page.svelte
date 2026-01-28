@@ -42,6 +42,7 @@
 		cloneConfig as clonePresetConfig,
 		getDefaultConfig
 	} from '$lib/services/presets';
+	import { sendAppNotification } from '$lib/services/notifications';
 
 	import { updateStore } from '$lib/stores/update.svelte';
 	import { checkForAppUpdate, installAppUpdate } from '$lib/services/update';
@@ -269,6 +270,19 @@
 					f.status === FileStatus.IDLE
 			)
 		) {
+			if (isProcessing) {
+				const completedCount = files.filter((f) => f.status === FileStatus.COMPLETED).length;
+				const errorCount = files.filter((f) => f.status === FileStatus.ERROR).length;
+
+				if (completedCount > 0 || errorCount > 0) {
+					sendAppNotification(
+						$_('notifications.conversionFinishedTitle'),
+						$_('notifications.conversionFinishedBody', {
+							values: { count: completedCount, errors: errorCount }
+						})
+					);
+				}
+			}
 			isProcessing = false;
 		}
 	}
