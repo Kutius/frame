@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Notifications:** Added native system notifications that trigger when a conversion queue finishes processing, summarizing the results (successes and errors).
+
+### Fixed
+
+- **CI/CD:** Removed deprecated `depends_on macos` directive from the Homebrew Cask generation workflow to resolve `brew doctor` warnings.
+
 ## [0.6.0] - 2026-01-28
 
 ### Added
