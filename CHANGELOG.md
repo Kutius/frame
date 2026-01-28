@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.7.1] - 2026-01-28
+
+### Added
+
+- **Task Cancellation:** Safely cancel active or paused tasks by removing them from the list (active tasks must be paused first to prevent accidental cancellation). This ensures that background FFmpeg processes are correctly terminated and queue slots are freed.
+
 ## [0.7.0] - 2026-01-28
 
 ### Added
@@ -246,8 +254,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic media metadata probing via FFprobe.
 - Preset-based configuration system.
 
-[Unreleased]: https://github.com/66HEX/frame/compare/0.7.0...HEAD
-[0.7.0]: https://github.com/66HEX/frame/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/66HEX/frame/compare/0.7.1...HEAD
+[0.7.1]: https://github.com/66HEX/frame/compare/0.7.0...0.7.1
+[0.7.0]: https://github.com/66HEX/frame/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/66HEX/frame/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/66HEX/frame/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/66HEX/frame/compare/0.3.3...0.4.0
