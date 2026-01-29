@@ -24,6 +24,7 @@ export interface ConversionConfig {
 	audioCodec: string;
 	audioBitrate: string;
 	audioChannels: 'original' | 'stereo' | 'mono';
+	audioVolume: number;
 	selectedAudioTracks: number[];
 	resolution: string;
 	customWidth?: string;
