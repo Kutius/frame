@@ -111,14 +111,20 @@
 				</button>
 			{/if}
 
-			{#if (item.status === FileStatus.IDLE || item.status === FileStatus.QUEUED) && item.metadata?.videoCodec}
+			{#if item.metadata?.videoCodec}
+				{@const isDisabled =
+					item.status === FileStatus.CONVERTING ||
+					item.status === FileStatus.PAUSED ||
+					item.status === FileStatus.COMPLETED}
 				<button
 					onclick={(e) => {
 						e.stopPropagation();
 						onTrim?.(item.id);
 					}}
+					disabled={isDisabled}
 					class={cn(
-						'transition-colors hover:text-foreground',
+						'transition-colors',
+						isDisabled ? 'pointer-events-none opacity-50' : 'hover:text-foreground',
 						item.config.startTime || item.config.endTime
 							? 'text-ds-blue-600'
 							: 'text-gray-alpha-600'
