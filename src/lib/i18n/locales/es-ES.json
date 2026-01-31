@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "Resolución y fotogramas",
+		"transform": "Transformar",
+		"rotation": "Rotación",
+		"flip": "Voltear",
+		"flipHorizontal": "Horizontal",
+		"flipVertical": "Vertical",
 		"width": "Ancho",
 		"height": "Alto",
 		"scalingAlgorithm": "Algoritmo de escalado",

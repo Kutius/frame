@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "Risoluzione e frame rate",
+		"transform": "Trasforma",
+		"rotation": "Rotazione",
+		"flip": "Capovolgi",
+		"flipHorizontal": "Orizzontale",
+		"flipVertical": "Verticale",
 		"width": "Larghezza",
 		"height": "Altezza",
 		"scalingAlgorithm": "Algoritmo di ridimensionamento",

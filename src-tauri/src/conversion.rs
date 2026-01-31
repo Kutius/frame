@@ -436,6 +436,16 @@ pub struct ConversionConfig {
     pub end_time: Option<String>,
     #[serde(default)]
     pub metadata: MetadataConfig,
+    #[serde(default = "default_rotation")]
+    pub rotation: String,
+    #[serde(default)]
+    pub flip_horizontal: bool,
+    #[serde(default)]
+    pub flip_vertical: bool,
+}
+
+fn default_rotation() -> String {
+    "0".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -611,6 +621,21 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
         args.push(config.preset.clone());
 
         let mut video_filters = Vec::new();
+
+        if config.flip_horizontal {
+            video_filters.push("hflip".to_string());
+        }
+
+        if config.flip_vertical {
+            video_filters.push("vflip".to_string());
+        }
+
+        match config.rotation.as_str() {
+            "90" => video_filters.push("transpose=1".to_string()),
+            "180" => video_filters.push("transpose=1,transpose=1".to_string()),
+            "270" => video_filters.push("transpose=2".to_string()),
+            _ => {}
+        }
 
         if config.resolution != "original" || config.resolution == "custom" {
             let scale_filter = if config.resolution == "custom" {
@@ -1134,6 +1159,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         };
 
         let args = build_ffmpeg_args("input.mov", "output.mp4", &config);
@@ -1174,6 +1202,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         };
         let args = build_ffmpeg_args("in.mp4", "out.mp4", &config);
 
@@ -1205,6 +1236,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         };
 
         let args = build_ffmpeg_args("in.mp4", "out.mp4", &config);
@@ -1237,6 +1271,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         };
         let args = build_ffmpeg_args("raw.mov", "archive.mkv", &config);
 
@@ -1271,6 +1308,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         };
         let args = build_ffmpeg_args("clip.mp4", "web.webm", &config);
 
@@ -1325,6 +1365,9 @@ mod tests {
             end_time: None,
             audio_normalize: false,
             metadata: MetadataConfig::default(),
+            rotation: "0".into(),
+            flip_horizontal: false,
+            flip_vertical: false,
         }
     }
 

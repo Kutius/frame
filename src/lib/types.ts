@@ -39,6 +39,9 @@ export interface ConversionConfig {
 	startTime?: string;
 	endTime?: string;
 	metadata: MetadataConfig;
+	rotation: '0' | '90' | '180' | '270';
+	flipHorizontal: boolean;
+	flipVertical: boolean;
 }
 
 export type MetadataMode = 'preserve' | 'clean' | 'replace';

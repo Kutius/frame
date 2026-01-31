@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "Разрешение и частота кадров",
+		"transform": "Преобразование",
+		"rotation": "Поворот",
+		"flip": "Отражение",
+		"flipHorizontal": "По горизонтали",
+		"flipVertical": "По вертикали",
 		"width": "Ширина",
 		"height": "Высота",
 		"scalingAlgorithm": "Алгоритм масштабирования",

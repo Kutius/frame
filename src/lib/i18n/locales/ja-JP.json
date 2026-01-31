@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "解像度とフレームレート",
+		"transform": "変換",
+		"rotation": "回転",
+		"flip": "反転",
+		"flipHorizontal": "水平",
+		"flipVertical": "垂直",
 		"width": "幅",
 		"height": "高さ",
 		"scalingAlgorithm": "スケーリングアルゴリズム",

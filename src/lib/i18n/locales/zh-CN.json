@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "分辨率和帧率",
+		"transform": "变换",
+		"rotation": "旋转",
+		"flip": "翻转",
+		"flipHorizontal": "水平",
+		"flipVertical": "垂直",
 		"width": "宽度",
 		"height": "高度",
 		"scalingAlgorithm": "缩放算法",

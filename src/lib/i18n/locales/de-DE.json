@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "Auflösung & Bildrate",
+		"transform": "Transformieren",
+		"rotation": "Drehung",
+		"flip": "Spiegeln",
+		"flipHorizontal": "Horizontal",
+		"flipVertical": "Vertikal",
 		"width": "Breite",
 		"height": "Höhe",
 		"scalingAlgorithm": "Skalierungsalgorithmus",

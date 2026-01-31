@@ -103,6 +103,11 @@
 	},
 	"video": {
 		"resolutionFramerate": "해상도 및 프레임 레이트",
+		"transform": "변환",
+		"rotation": "회전",
+		"flip": "뒤집기",
+		"flipHorizontal": "수평",
+		"flipVertical": "수직",
 		"width": "너비",
 		"height": "높이",
 		"scalingAlgorithm": "스케일링 알고리즘",
