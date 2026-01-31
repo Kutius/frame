@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { convertFileSrc } from '@tauri-apps/api/core';
-	import { Play } from 'lucide-svelte';
+	import {
+		Play,
+		RotateCw,
+		FlipHorizontal as FlipHorizontalIcon,
+		FlipVertical as FlipVerticalIcon
+	} from 'lucide-svelte';
 	import Label from '$lib/components/ui/Label.svelte';
 	import TimecodeInput from '$lib/components/ui/TimecodeInput.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { _ } from '$lib/i18n';
+	import type { ConversionConfig } from '$lib/types';
 
 	let {
 		filePath,
@@ -14,7 +21,9 @@
 		rotation = '0',
 		flipHorizontal = false,
 		flipVertical = false,
-		onSave
+		onSave,
+		onUpdateConfig,
+		controlsDisabled = false
 	}: {
 		filePath: string;
 		initialStartTime?: string;
@@ -23,6 +32,8 @@
 		flipHorizontal?: boolean;
 		flipVertical?: boolean;
 		onSave: (start?: string, end?: string) => void;
+		onUpdateConfig?: (config: Partial<ConversionConfig>) => void;
+		controlsDisabled?: boolean;
 	} = $props();
 
 	let videoSrc = $state('');
@@ -153,6 +164,23 @@
 
 	let sliderRef: HTMLDivElement | undefined = $state();
 	let dragging: 'start' | 'end' | null = null;
+	const ROTATION_STEPS: ConversionConfig['rotation'][] = ['0', '90', '180', '270'];
+
+	function handleRotateToggle() {
+		if (!onUpdateConfig || controlsDisabled) return;
+		const currentIndex = ROTATION_STEPS.indexOf(rotation || '0');
+		const next = ROTATION_STEPS[(currentIndex + 1) % ROTATION_STEPS.length];
+		onUpdateConfig({ rotation: next });
+	}
+
+	function toggleFlip(axis: 'horizontal' | 'vertical') {
+		if (!onUpdateConfig || controlsDisabled) return;
+		if (axis === 'horizontal') {
+			onUpdateConfig({ flipHorizontal: !flipHorizontal });
+		} else {
+			onUpdateConfig({ flipVertical: !flipVertical });
+		}
+	}
 
 	function handleMouseDown(e: MouseEvent, type: 'start' | 'end') {
 		e.preventDefault();
@@ -224,7 +252,7 @@
 
 		{#if !isPlaying}
 			<div
-				class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-background/80"
+				class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/60"
 			>
 				<div
 					class="bg-gray-alpha-200 flex size-16 items-center justify-center rounded-full backdrop-blur-md"
@@ -235,9 +263,9 @@
 		{/if}
 	</div>
 
-	<div class="mt-4 px-2">
+	<div class="mt-4">
 		<div
-			class="relative mb-6 h-8 cursor-pointer select-none"
+			class="relative mx-2 mb-6 h-8 cursor-pointer select-none"
 			bind:this={sliderRef}
 			onmousedown={(e) => e.target === sliderRef && seekTo(e)}
 			role="presentation"
@@ -276,7 +304,7 @@
 			</div>
 		</div>
 
-		<div class="flex flex-wrap items-end justify-between gap-4">
+		<div class="relative flex flex-wrap items-end justify-between gap-4">
 			<div class="flex flex-wrap gap-4">
 				<div class="space-y-1.5">
 					<Label>{$_('trim.startTime')}</Label>
@@ -306,9 +334,38 @@
 				</div>
 				<div class="space-y-1.5">
 					<Label>{$_('trim.duration')}</Label>
-					<div class="text-gray-alpha-600 py-1.5 font-mono text-[10px] tracking-wide">
+					<div class="text-gray-alpha-600 py-1.5 font-mono text-[11px] tracking-wide">
 						{formatTime(endValue - startValue)}
 					</div>
+				</div>
+				<div class="space-y-1.2 absolute right-0 bottom-0 flex items-end">
+					<Button
+						size="icon"
+						variant="ghost"
+						title={$_('video.rotation')}
+						onclick={handleRotateToggle}
+						disabled={controlsDisabled}
+					>
+						<RotateCw size={14} />
+					</Button>
+					<Button
+						size="icon"
+						variant={flipHorizontal ? 'selected' : 'ghost'}
+						title={$_('video.flipHorizontal')}
+						onclick={() => toggleFlip('horizontal')}
+						disabled={controlsDisabled}
+					>
+						<FlipHorizontalIcon size={14} />
+					</Button>
+					<Button
+						size="icon"
+						variant={flipVertical ? 'selected' : 'ghost'}
+						title={$_('video.flipVertical')}
+						onclick={() => toggleFlip('vertical')}
+						disabled={controlsDisabled}
+					>
+						<FlipVerticalIcon size={14} />
+					</Button>
 				</div>
 			</div>
 		</div>

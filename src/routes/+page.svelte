@@ -64,6 +64,13 @@
 	let logs = $state<Record<string, string[]>>({});
 
 	let selectedFile = $derived(files.find((f) => f.id === selectedFileId));
+	let selectedFileLocked = $derived(
+		selectedFile
+			? selectedFile.status === FileStatus.CONVERTING ||
+				selectedFile.status === FileStatus.QUEUED ||
+				selectedFile.status === FileStatus.COMPLETED
+			: false
+	);
 	let totalSize = $derived(files.reduce((acc, curr) => acc + curr.size, 0));
 	let presets = $derived([...DEFAULT_PRESETS, ...customPresets] as PresetDefinition[]);
 	let selectedCount = $derived(files.filter((f) => f.isSelectedForConversion).length);
@@ -543,6 +550,8 @@
 										flipHorizontal={selectedFile.config.flipHorizontal}
 										flipVertical={selectedFile.config.flipVertical}
 										onSave={handleSaveTrim}
+										onUpdateConfig={updateSelectedConfig}
+										controlsDisabled={selectedFileLocked}
 									/>
 								{/key}
 							{:else}
@@ -571,9 +580,9 @@
 					<div
 						class="custom-scrollbar h-full min-h-0 overflow-y-auto rounded-lg border border-gray-alpha-100 bg-gray-alpha-100"
 					>
-						{#if selectedFile}
-							<SettingsPanel
-								config={selectedFile.config}
+								{#if selectedFile}
+									<SettingsPanel
+										config={selectedFile.config}
 								outputName={selectedFile.outputName}
 								metadata={selectedFile.metadata}
 								metadataStatus={selectedFile.metadataStatus}
@@ -584,9 +593,7 @@
 								onApplyPreset={applyPresetToSelection}
 								onSavePreset={handleSavePreset}
 								onDeletePreset={handleDeletePreset}
-								disabled={selectedFile.status === FileStatus.CONVERTING ||
-									selectedFile.status === FileStatus.QUEUED ||
-									selectedFile.status === FileStatus.COMPLETED}
+								disabled={selectedFileLocked}
 							/>
 						{:else}
 							<EmptySelection />
