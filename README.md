@@ -48,7 +48,7 @@
   - `prores` (Apple ProRes)
   - `libsvtav1` (Scalable Video Technology AV1)
   - **Hardware Acceleration:** `h264_videotoolbox` (Apple Silicon), `h264_nvenc` (NVIDIA).
-- **Audio Encoders:** `aac`, `ac3` (Dolby Digital), `libopus`, `mp3`.
+- **Audio Encoders:** `aac`, `ac3` (Dolby Digital), `libopus`, `mp3`, `alac` (Apple Lossless), `flac` (Free Lossless Audio Codec), `pcm_s16le` (WAV).
 - **Bitrate Control:** Constant Rate Factor (CRF) or Target Bitrate (kbps).
 - **Scaling:** Bicubic, Lanczos, Bilinear, Nearest Neighbor.
 - **Metadata Probing:** Automated extraction of stream details (codec, duration, bitrate, channel layout) via `ffprobe`.
@@ -132,6 +132,10 @@ The easiest way to run Frame is to grab a prebuilt package from the [GitHub Rele
     - **Presets:** Save and load reusable conversion profiles.
 3.  **Execution:** Initiates the conversion process via the Rust backend.
 4.  **Monitoring:** View real-time logs and percentage counters in the UI.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=66HEX/frame&type=timeline&legend=top-left)](https://www.star-history.com/#66HEX/frame&type=timeline&legend=top-left)
 
 ## License
 
