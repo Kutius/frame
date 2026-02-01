@@ -671,23 +671,6 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
         }
 
         if config.resolution != "original" || config.resolution == "custom" {
-            let scale_filter = if config.resolution == "custom" {
-                let w = config.custom_width.as_deref().unwrap_or("-1");
-                let h = config.custom_height.as_deref().unwrap_or("-1");
-                if w == "-1" && h == "-1" {
-                    "scale=-1:-1".to_string()
-                } else {
-                    format!("scale={}:{}", w, h)
-                }
-            } else {
-                match config.resolution.as_str() {
-                    "1080p" => "scale=-1:1080".to_string(),
-                    "720p" => "scale=-1:720".to_string(),
-                    "480p" => "scale=-1:480".to_string(),
-                    _ => "scale=-1:-1".to_string(),
-                }
-            };
-
             let algorithm = match config.scaling_algorithm.as_str() {
                 "lanczos" => ":flags=lanczos",
                 "bilinear" => ":flags=bilinear",
@@ -696,7 +679,32 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
                 _ => "",
             };
 
-            video_filters.push(format!("{}{}", scale_filter, algorithm));
+            let scale_filter = if config.resolution == "custom" {
+                let w = config.custom_width.as_deref().unwrap_or("-1");
+                let h = config.custom_height.as_deref().unwrap_or("-1");
+                if w != "-1" && h != "-1" {
+                    // Fit within the box, preserving aspect ratio, and pad with black bars
+                    format!(
+                        "scale={w}:{h}:force_original_aspect_ratio=decrease{algo},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2",
+                        w = w,
+                        h = h,
+                        algo = algorithm
+                    )
+                } else if w == "-1" && h == "-1" {
+                    "scale=-1:-1".to_string()
+                } else {
+                    format!("scale={}:{}{}", w, h, algorithm)
+                }
+            } else {
+                match config.resolution.as_str() {
+                    "1080p" => format!("scale=-1:1080{}", algorithm),
+                    "720p" => format!("scale=-1:720{}", algorithm),
+                    "480p" => format!("scale=-1:480{}", algorithm),
+                    _ => "scale=-1:-1".to_string(),
+                }
+            };
+
+            video_filters.push(scale_filter);
         }
 
         if !video_filters.is_empty() {
