@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.13.1] - 2026-02-01
+
+### Fixed
+
+- **CI/CD:** Switched the Linux AMD64 build runner to `ubuntu-24.04` and pinned specific WebKitGTK versions to resolve `EGL_BAD_PARAMETER` errors when running the AppImage on modern Linux distributions like Arch/CachyOS.
+
 ## [0.13.0] - 2026-02-01
 
 ### Added
@@ -321,7 +329,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic media metadata probing via FFprobe.
 - Preset-based configuration system.
 
-[Unreleased]: https://github.com/66HEX/frame/compare/0.13.0...HEAD
+[Unreleased]: https://github.com/66HEX/frame/compare/0.13.1...HEAD
+[0.13.1]: https://github.com/66HEX/frame/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/66HEX/frame/compare/0.12.0...0.13.0
 [0.12.0]: https://github.com/66HEX/frame/compare/0.11.0...0.12.0
 [0.11.0]: https://github.com/66HEX/frame/compare/0.10.0...0.11.0
