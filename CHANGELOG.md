@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Subtitle Support:** Comprehensive handling of subtitle tracks within the application.
+  - **Soft-subs:** Added ability to select and passthrough existing subtitle tracks from the source file. By default, all tracks are preserved if none are explicitly selected.
+  - **Hard-subs (Burn-in):** Support for burning in external subtitle files (`.srt`, `.ass`, `.vtt`) directly into the video stream. The process includes automatic path escaping for cross-platform compatibility.
+
 ### Changed
 
 - **UI:** Replaced text-based setting tabs with intuitive icon-based buttons (Source, Output, Video, Audio, Metadata, Presets) for a cleaner and more compact interface.

@@ -105,7 +105,7 @@
 ></button>
 
 <div
-	class="border-gray-alpha-200 absolute top-0 right-0 bottom-0 z-70 w-80 rounded-l-xl border-l bg-background/60 shadow-xl backdrop-blur-md"
+	class="border-gray-alpha-200 absolute top-0 right-0 bottom-0 z-70 w-80 rounded-l-xl border-l bg-background/60 shadow-2xl backdrop-blur-md"
 	transition:fly={{ x: 320, duration: 300, opacity: 1 }}
 >
 	<div class="flex items-center justify-between border-b border-gray-alpha-100 px-4 py-3">

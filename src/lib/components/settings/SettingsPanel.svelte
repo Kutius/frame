@@ -12,13 +12,14 @@
 	import SourceTab from './tabs/SourceTab.svelte';
 	import OutputTab from './tabs/OutputTab.svelte';
 	import PresetsTab from './tabs/PresetsTab.svelte';
-	import VideoTab from './tabs/VideoTab.svelte';
+		import VideoTab from './tabs/VideoTab.svelte';
 	import AudioTab from './tabs/AudioTab.svelte';
+	import SubtitlesTab from './tabs/SubtitlesTab.svelte';
 	import MetadataTab from './tabs/MetadataTab.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { FileUp, FileDown, Film, Music, Tags, Bookmark } from 'lucide-svelte';
+	import { FileUp, FileDown, Film, Music, Captions, Tags, Bookmark } from 'lucide-svelte';
 
-	const TABS = ['source', 'output', 'video', 'audio', 'metadata', 'presets'] as const;
+	const TABS = ['source', 'output', 'video', 'audio', 'subtitles', 'metadata', 'presets'] as const;
 	type TabId = (typeof TABS)[number];
 
 	let {
@@ -60,6 +61,7 @@
 		output: FileDown,
 		video: Film,
 		audio: Music,
+		subtitles: Captions,
 		metadata: Tags,
 		presets: Bookmark
 	};
@@ -70,7 +72,7 @@
 		<div class="flex w-full items-center justify-start gap-1">
 			{#each TABS as tabId (tabId)}
 				{@const isVideoDisabled =
-					tabId === 'video' &&
+					(tabId === 'video' || tabId === 'subtitles') &&
 					(AUDIO_ONLY_CONTAINERS.includes(config.container) || isSourceAudioOnly)}
 				{@const Icon = icons[tabId]}
 				<Button
@@ -105,10 +107,12 @@
 			/>
 		{:else if activeTab === 'video'}
 			<VideoTab {config} {disabled} {onUpdate} />
-		{:else if activeTab === 'metadata'}
-			<MetadataTab {config} {disabled} {onUpdate} {metadata} />
-		{:else}
+		{:else if activeTab === 'audio'}
 			<AudioTab {config} {disabled} {onUpdate} {metadata} />
+		{:else if activeTab === 'subtitles'}
+			<SubtitlesTab {config} {disabled} {onUpdate} {metadata} />
+		{:else}
+			<MetadataTab {config} {disabled} {onUpdate} {metadata} />
 		{/if}
 	</div>
 </div>
