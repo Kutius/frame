@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Social Media Presets:** Added 6 new built-in presets for YouTube (1080p, 4K), X (Landscape, Portrait), TikTok/Reels, and Discord, optimized according to 2025 platform recommendations.
 - **HEVC Hardware Acceleration:** Added support for H.265 (HEVC) hardware encoding via `hevc_videotoolbox` (Apple Silicon/Intel) and `hevc_nvenc` (NVIDIA).
 - **Smart Encoder Detection:** The application now dynamically scans `ffmpeg` capabilities at startup to only show encoders supported by the user's hardware (e.g., hiding NVENC on macOS or VideoToolbox on Windows), replacing the previous static OS-based filtering.
+
+### Fixed
+
+- **Preset Matching:** Improved the logic for identifying the "Applied" preset in the UI by including video bitrate, custom resolution dimensions, and bitrate mode in the comparison, resolving an issue where multiple presets would appear as selected simultaneously.
 
 ## [0.14.0] - 2026-02-01
 
