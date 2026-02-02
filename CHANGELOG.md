@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **AV1 Hardware Acceleration:** Added support for NVIDIA's AV1 hardware encoder (`av1_nvenc`) for compatible RTX 40-series GPUs. Integrated with the existing quality slider for consistent VBR control.
+- **Hardware Encoder Controls:** The video panel now exposes NVENC-specific AQ toggles (spatial and temporal) and a software-fallback switch for VideoToolbox, mirroring the new ffmpeg flag support.
+
+### Changed
+
+- **Preset Awareness:** Hardware encoders now only show presets they actually accept, and NVENC selections are automatically mapped to valid ffmpeg preset names to prevent failed launches with legacy user presets.
+- **FFmpeg Argument Builder:** Updated to emit the correct hardware flags (`-cq:v`/AQ options for NVENC, `-allow_sw` for VideoToolbox) and to skip unsupported parameters like `-preset` for VideoToolbox, ensuring conversions no longer fail when switching between software and hardware encoders.
 
 ## [0.17.0] - 2026-02-02
 
