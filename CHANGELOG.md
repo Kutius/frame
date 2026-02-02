@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Dynamic Overlay:** The play/pause overlay now automatically appears on hover during playback and remains visible when paused.
   - **Animated Transitions:** Implemented smooth Svelte fade transitions for the overlay and playback controls.
   - **Contextual Icons:** The overlay button now dynamically toggles between Play and Pause icons based on the current playback state.
+
 ### Fixed
 
 - **Preview Panel:** Resolved a frame flickering issue where the video would jump back to the start frame while adjusting the trim handles. The playback loop logic is now suppressed during active dragging to ensure a smooth frame preview.
@@ -34,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Icon System:** Migrated the entire application icon set from `lucide-svelte` to Phosphor Icons.
 - **Icon Architecture:** Implemented a central icon management system in `src/lib/icons` using a standardized "internal naming" convention (e.g., `IconPlay`, `IconTrash`, `IconClose`). This decouples UI components from specific libraries and simplifies future icon set swaps.
 - **Performance:** Converted all raw SVG icons into native Svelte 5 components with support for reactive `size` and `class` properties.
-
 
 ## [0.16.0] - 2026-02-01
 
