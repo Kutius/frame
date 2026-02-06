@@ -29,7 +29,7 @@
 			"binaries/realesrgan-ncnn-vulkan"
 		],
 		"resources": [
-			"binaries/models/*"
+			"resources/models/**/*"
 		],
 		"icon": [
 			"icons/32x32.png",

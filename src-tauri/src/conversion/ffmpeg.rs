@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::path::{Path, PathBuf};
+use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -605,9 +606,8 @@ async fn run_upscale_worker(
 
     let models_path = app
         .path()
-        .resource_dir()
-        .map_err(|e| ConversionError::Shell(e.to_string()))?
-        .join("binaries/models");
+        .resolve("resources/models", BaseDirectory::Resource)
+        .map_err(|e| ConversionError::Shell(e.to_string()))?;
 
     let upscaler_args = vec![
         "-v".to_string(),
