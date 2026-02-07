@@ -1,4 +1,3 @@
-use regex::Regex;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -11,7 +10,7 @@ use crate::conversion::types::{
     CompletedPayload, ConversionTask, ErrorPayload, LogPayload, ProgressPayload, StartedPayload,
 };
 use crate::conversion::upscale::run_upscale_worker;
-use crate::conversion::utils::parse_time;
+use crate::conversion::utils::{parse_time, DURATION_REGEX, TIME_REGEX};
 
 pub async fn run_ffmpeg_worker(
     app: AppHandle,
@@ -24,7 +23,7 @@ pub async fn run_ffmpeg_worker(
         }
     }
 
-    let output_path = build_output_path(&task.file_path, &task.config.container, task.output_name);
+    let output_path = build_output_path(&task.file_path, &task.config.container, task.output_name.clone());
     let args = build_ffmpeg_args(&task.file_path, &output_path, &task.config);
 
     let sidecar_command = app
@@ -37,28 +36,24 @@ pub async fn run_ffmpeg_worker(
         .spawn()
         .map_err(|e| ConversionError::Shell(e.to_string()))?;
 
-    let id = task.id;
-    let app_clone = app.clone();
+    let id = task.id.clone();
 
     let _ = tx
         .send(ManagerMessage::TaskStarted(id.clone(), child.pid()))
         .await;
 
-    let _ = app_clone.emit(
+    let _ = app.emit(
         "conversion-started",
         StartedPayload { id: id.clone() },
     );
 
-    let _ = app_clone.emit(
+    let _ = app.emit(
         "conversion-progress",
         ProgressPayload {
             id: id.clone(),
             progress: 0.0,
         },
     );
-
-    let duration_regex = Regex::new(r"Duration: (\d{2}:\d{2}:\d{2}\.\d{2})").unwrap();
-    let time_regex = Regex::new(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})").unwrap();
 
     let mut exit_code: Option<i32> = None;
     let mut total_duration: Option<f64> = None;
@@ -98,7 +93,7 @@ pub async fn run_ffmpeg_worker(
                         continue;
                     }
 
-                    let _ = app_clone.emit(
+                    let _ = app.emit(
                         "conversion-log",
                         LogPayload {
                             id: id.clone(),
@@ -106,14 +101,14 @@ pub async fn run_ffmpeg_worker(
                         },
                     );
 
-                    if let Some(caps) = time_regex.captures(line) {
+                    if let Some(caps) = TIME_REGEX.captures(line) {
                         if let Some(match_str) = caps.get(1) {
                             if let Some(current_time) = parse_time(match_str.as_str()) {
                                 let duration = if expected_duration > 0.0 {
                                     expected_duration
                                 } else if let Some(d) = total_duration {
                                     d
-                                } else if let Some(caps) = duration_regex.captures(line) {
+                                } else if let Some(caps) = DURATION_REGEX.captures(line) {
                                     if let Some(m) = caps.get(1) {
                                         total_duration = parse_time(m.as_str());
                                         total_duration.unwrap_or(0.0)
@@ -126,7 +121,7 @@ pub async fn run_ffmpeg_worker(
 
                                 if duration > 0.0 {
                                     let progress = (current_time / duration * 100.0).min(100.0);
-                                    let _ = app_clone.emit(
+                                    let _ = app.emit(
                                         "conversion-progress",
                                         ProgressPayload {
                                             id: id.clone(),
@@ -147,17 +142,17 @@ pub async fn run_ffmpeg_worker(
     }
 
     if exit_code == Some(0) {
-        let _ = app_clone.emit(
+        let _ = app.emit(
             "conversion-completed",
             CompletedPayload {
                 id: id.clone(),
-                output_path: output_path.clone(),
+                output_path,
             },
         );
         Ok(())
     } else {
         let err_msg = format!("Process terminated with code {:?}", exit_code);
-        let _ = app_clone.emit(
+        let _ = app.emit(
             "conversion-error",
             ErrorPayload {
                 id: id.clone(),

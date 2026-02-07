@@ -1,20 +1,21 @@
-use regex::Regex;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use tokio::sync::mpsc;
 
-use crate::conversion::args::build_output_path;
+use crate::conversion::args::{add_metadata_flags, build_output_path};
+use crate::conversion::codec::{
+    add_audio_codec_args, add_audio_codec_args_copy, add_fps_args, add_subtitle_copy_args,
+    add_video_codec_args,
+};
 use crate::conversion::error::ConversionError;
+use crate::conversion::filters::{build_audio_filters, build_video_filters};
 use crate::conversion::manager::ManagerMessage;
 use crate::conversion::types::{
     CompletedPayload, ConversionTask, LogPayload, MetadataMode, ProgressPayload, StartedPayload,
-    VOLUME_EPSILON,
 };
-use crate::conversion::utils::{
-    is_nvenc_codec, is_videotoolbox_codec, map_nvenc_preset, parse_time,
-};
+use crate::conversion::utils::{parse_time, FRAME_REGEX};
 
 pub async fn run_upscale_worker(
     app: AppHandle,
@@ -72,6 +73,25 @@ pub async fn run_upscale_worker(
     let app_clone = app.clone();
     let id_clone = task.id.clone();
 
+    let _ = tx
+        .send(ManagerMessage::TaskStarted(task.id.clone(), 0))
+        .await;
+
+    let _ = app_clone.emit(
+        "conversion-started",
+        StartedPayload {
+            id: id_clone.clone(),
+        },
+    );
+
+    let _ = app_clone.emit(
+        "conversion-progress",
+        ProgressPayload {
+            id: id_clone.clone(),
+            progress: 0.0,
+        },
+    );
+
     let mut dec_args = vec!["-i".to_string(), task.file_path.clone()];
 
     if let Some(start) = &task.config.start_time {
@@ -103,42 +123,7 @@ pub async fn run_upscale_worker(
         }
     }
 
-    let mut video_filters: Vec<String> = Vec::new();
-
-    if task.config.flip_horizontal {
-        video_filters.push("hflip".to_string());
-    }
-    if task.config.flip_vertical {
-        video_filters.push("vflip".to_string());
-    }
-
-    match task.config.rotation.as_str() {
-        "90" => video_filters.push("transpose=1".to_string()),
-        "180" => video_filters.push("transpose=1,transpose=1".to_string()),
-        "270" => video_filters.push("transpose=2".to_string()),
-        _ => {}
-    }
-
-    if let Some(crop) = &task.config.crop {
-        if crop.enabled {
-            let crop_width = crop.width.max(1.0).round() as i32;
-            let crop_height = crop.height.max(1.0).round() as i32;
-            let crop_x = crop.x.max(0.0).round() as i32;
-            let crop_y = crop.y.max(0.0).round() as i32;
-            video_filters.push(format!(
-                "crop={}:{}:{}:{}",
-                crop_width, crop_height, crop_x, crop_y
-            ));
-        }
-    }
-
-    if let Some(burn_path) = &task.config.subtitle_burn_path {
-        if !burn_path.is_empty() {
-            let escaped_path = burn_path.replace('\\', "/").replace(':', "\\:");
-            video_filters.push(format!("subtitles='{}'", escaped_path));
-        }
-    }
-
+    let video_filters = build_video_filters(&task.config, false);
     if !video_filters.is_empty() {
         dec_args.push("-vf".to_string());
         dec_args.push(video_filters.join(","));
@@ -166,22 +151,6 @@ pub async fn run_upscale_worker(
         ))
         .await;
 
-    let _ = app_clone.emit(
-        "conversion-started",
-        StartedPayload {
-            id: id_clone.clone(),
-        },
-    );
-
-    let _ = app_clone.emit(
-        "conversion-progress",
-        ProgressPayload {
-            id: id_clone.clone(),
-            progress: 0.0,
-        },
-    );
-
-    let frame_regex = Regex::new(r"frame=\s*(\d+)").unwrap();
     let mut decode_success = false;
 
     while let Some(event) = dec_rx.recv().await {
@@ -197,7 +166,7 @@ pub async fn run_upscale_worker(
                 );
 
                 if total_frames > 0 {
-                    if let Some(caps) = frame_regex.captures(&line) {
+                    if let Some(caps) = FRAME_REGEX.captures(&line) {
                         if let Some(frame_match) = caps.get(1) {
                             if let Ok(current_frame) = frame_match.as_str().parse::<u32>() {
                                 let decode_progress =
@@ -345,9 +314,6 @@ pub async fn run_upscale_worker(
         )));
     }
 
-    let is_nvenc = is_nvenc_codec(&task.config.video_codec);
-    let is_videotoolbox = is_videotoolbox_codec(&task.config.video_codec);
-
     let output_fps = if task.config.fps != "original" {
         task.config.fps.clone()
     } else {
@@ -414,111 +380,22 @@ pub async fn run_upscale_worker(
         enc_args.push("1:s?".to_string());
     }
 
-    enc_args.push("-c:v".to_string());
-    enc_args.push(task.config.video_codec.clone());
-
-    if task.config.video_bitrate_mode == "bitrate" {
-        enc_args.push("-b:v".to_string());
-        enc_args.push(format!("{}k", task.config.video_bitrate));
-    } else if is_nvenc {
-        let cq = (52.0 - (task.config.quality as f64 / 2.0))
-            .round()
-            .clamp(1.0, 51.0) as u32;
-        enc_args.push("-rc:v".to_string());
-        enc_args.push("vbr".to_string());
-        enc_args.push("-cq:v".to_string());
-        enc_args.push(cq.to_string());
-    } else if is_videotoolbox {
-        enc_args.push("-q:v".to_string());
-        enc_args.push(task.config.quality.to_string());
-    } else {
-        enc_args.push("-crf".to_string());
-        enc_args.push(task.config.crf.to_string());
-    }
-
-    if !is_videotoolbox {
-        enc_args.push("-preset".to_string());
-        let preset_value = if is_nvenc {
-            map_nvenc_preset(&task.config.preset)
-        } else {
-            task.config.preset.clone()
-        };
-        enc_args.push(preset_value);
-    }
-
-    if is_nvenc {
-        if task.config.nvenc_spatial_aq {
-            enc_args.push("-spatial_aq".to_string());
-            enc_args.push("1".to_string());
-        }
-        if task.config.nvenc_temporal_aq {
-            enc_args.push("-temporal_aq".to_string());
-            enc_args.push("1".to_string());
-        }
-    }
-
-    if is_videotoolbox && task.config.videotoolbox_allow_sw {
-        enc_args.push("-allow_sw".to_string());
-        enc_args.push("1".to_string());
-    }
+    add_video_codec_args(&mut enc_args, &task.config);
 
     if !task.config.selected_audio_tracks.is_empty() {
-        enc_args.push("-c:a".to_string());
-        enc_args.push(task.config.audio_codec.clone());
-
-        let lossless_audio_codecs = ["flac", "alac", "pcm_s16le"];
-        if !lossless_audio_codecs.contains(&task.config.audio_codec.as_str()) {
-            enc_args.push("-b:a".to_string());
-            enc_args.push(format!("{}k", task.config.audio_bitrate));
-        }
+        add_audio_codec_args(&mut enc_args, &task.config);
     } else {
-        enc_args.push("-c:a".to_string());
-        enc_args.push("copy".to_string());
+        add_audio_codec_args_copy(&mut enc_args);
     }
 
-    match task.config.audio_channels.as_str() {
-        "stereo" => {
-            enc_args.push("-ac".to_string());
-            enc_args.push("2".to_string());
-        }
-        "mono" => {
-            enc_args.push("-ac".to_string());
-            enc_args.push("1".to_string());
-        }
-        _ => {}
-    }
-
-    let mut audio_filters: Vec<String> = Vec::new();
-
-    if task.config.audio_normalize {
-        audio_filters.push("loudnorm=I=-16:TP=-1.5:LRA=11".to_string());
-    }
-
-    if (task.config.audio_volume - 100.0).abs() > VOLUME_EPSILON {
-        let volume_factor = task.config.audio_volume / 100.0;
-        audio_filters.push(format!("volume={:.2}", volume_factor));
-    }
-
+    let audio_filters = build_audio_filters(&task.config);
     if !audio_filters.is_empty() {
         enc_args.push("-af".to_string());
         enc_args.push(audio_filters.join(","));
     }
 
-    if task.config.subtitle_burn_path.is_none()
-        || task
-            .config
-            .subtitle_burn_path
-            .as_ref()
-            .map_or(true, |p| p.is_empty())
-    {
-        enc_args.push("-c:s".to_string());
-        enc_args.push("copy".to_string());
-    }
-
-    if task.config.fps != "original" {
-        enc_args.push("-r".to_string());
-        enc_args.push(task.config.fps.clone());
-    }
+    add_subtitle_copy_args(&mut enc_args, &task.config);
+    add_fps_args(&mut enc_args, &task.config);
 
     enc_args.push("-pix_fmt".to_string());
     enc_args.push("yuv420p".to_string());
@@ -541,8 +418,6 @@ pub async fn run_upscale_worker(
         ))
         .await;
 
-    let encode_frame_regex = Regex::new(r"frame=\s*(\d+)").unwrap();
-
     while let Some(event) = enc_rx.recv().await {
         match event {
             CommandEvent::Stderr(ref line_bytes) => {
@@ -556,7 +431,7 @@ pub async fn run_upscale_worker(
                 );
 
                 if total_frames > 0 {
-                    if let Some(caps) = encode_frame_regex.captures(&line) {
+                    if let Some(caps) = FRAME_REGEX.captures(&line) {
                         if let Some(frame_match) = caps.get(1) {
                             if let Ok(current_frame) = frame_match.as_str().parse::<u32>() {
                                 let encode_progress =
@@ -596,46 +471,4 @@ pub async fn run_upscale_worker(
     }
 
     Ok(())
-}
-
-fn add_metadata_flags(
-    args: &mut Vec<String>,
-    metadata: &crate::conversion::types::MetadataConfig,
-) {
-    if let Some(v) = &metadata.title {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("title={}", v));
-        }
-    }
-    if let Some(v) = &metadata.artist {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("artist={}", v));
-        }
-    }
-    if let Some(v) = &metadata.album {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("album={}", v));
-        }
-    }
-    if let Some(v) = &metadata.genre {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("genre={}", v));
-        }
-    }
-    if let Some(v) = &metadata.date {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("date={}", v));
-        }
-    }
-    if let Some(v) = &metadata.comment {
-        if !v.is_empty() {
-            args.push("-metadata".to_string());
-            args.push(format!("comment={}", v));
-        }
-    }
 }

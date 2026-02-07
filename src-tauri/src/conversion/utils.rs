@@ -1,4 +1,16 @@
-pub(crate) fn parse_frame_rate_string(value: Option<&str>) -> Option<f64> {
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+pub static FRAME_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"frame=\s*(\d+)").unwrap());
+
+pub static DURATION_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"Duration: (\d{2}:\d{2}:\d{2}\.\d{2})").unwrap());
+
+pub static TIME_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})").unwrap());
+
+pub fn parse_frame_rate_string(value: Option<&str>) -> Option<f64> {
     let value = value?.trim();
     if value.is_empty() || value.eq_ignore_ascii_case("n/a") {
         return None;
@@ -16,7 +28,7 @@ pub(crate) fn parse_frame_rate_string(value: Option<&str>) -> Option<f64> {
     }
 }
 
-pub(crate) fn parse_probe_bitrate(raw: Option<&str>) -> Option<f64> {
+pub fn parse_probe_bitrate(raw: Option<&str>) -> Option<f64> {
     let raw = raw?.trim();
     if raw.eq_ignore_ascii_case("n/a") || raw.is_empty() {
         return None;
@@ -28,22 +40,22 @@ pub(crate) fn parse_probe_bitrate(raw: Option<&str>) -> Option<f64> {
     Some(numeric / 1000.0)
 }
 
-pub(crate) fn is_audio_only_container(container: &str) -> bool {
+pub fn is_audio_only_container(container: &str) -> bool {
     matches!(
         container.to_lowercase().as_str(),
         "mp3" | "wav" | "flac" | "aac" | "m4a"
     )
 }
 
-pub(crate) fn is_nvenc_codec(codec: &str) -> bool {
+pub fn is_nvenc_codec(codec: &str) -> bool {
     matches!(codec, "h264_nvenc" | "hevc_nvenc" | "av1_nvenc")
 }
 
-pub(crate) fn is_videotoolbox_codec(codec: &str) -> bool {
+pub fn is_videotoolbox_codec(codec: &str) -> bool {
     matches!(codec, "h264_videotoolbox" | "hevc_videotoolbox")
 }
 
-pub(crate) fn map_nvenc_preset(preset: &str) -> String {
+pub fn map_nvenc_preset(preset: &str) -> String {
     match preset {
         "fast" | "medium" | "slow" => preset.to_string(),
         "default" => "default".to_string(),
@@ -54,7 +66,7 @@ pub(crate) fn map_nvenc_preset(preset: &str) -> String {
     }
 }
 
-pub(crate) fn parse_time(time_str: &str) -> Option<f64> {
+pub fn parse_time(time_str: &str) -> Option<f64> {
     let parts: Vec<&str> = time_str.split(':').collect();
     if parts.len() != 3 {
         return None;

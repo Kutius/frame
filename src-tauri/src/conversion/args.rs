@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
+use crate::conversion::codec::{add_audio_codec_args, add_fps_args, add_subtitle_copy_args, add_video_codec_args};
 use crate::conversion::error::ConversionError;
-use crate::conversion::types::{ConversionConfig, MetadataConfig, MetadataMode, VOLUME_EPSILON};
-use crate::conversion::utils::{
-    is_audio_only_container, is_nvenc_codec, is_videotoolbox_codec, map_nvenc_preset, parse_time,
-};
+use crate::conversion::filters::{build_audio_filters, build_video_filters};
+use crate::conversion::types::{ConversionConfig, MetadataConfig, MetadataMode};
+use crate::conversion::utils::{is_audio_only_container, parse_time};
 
 pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -> Vec<String> {
     let mut args = Vec::new();
@@ -59,144 +59,19 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
     }
 
     let is_audio_only = is_audio_only_container(&config.container);
-    let is_nvenc = is_nvenc_codec(&config.video_codec);
-    let is_videotoolbox = is_videotoolbox_codec(&config.video_codec);
 
     if is_audio_only {
         args.push("-vn".to_string());
     } else {
-        args.push("-c:v".to_string());
-        args.push(config.video_codec.clone());
+        add_video_codec_args(&mut args, config);
 
-        if config.video_bitrate_mode == "bitrate" {
-            args.push("-b:v".to_string());
-            args.push(format!("{}k", config.video_bitrate));
-        } else if is_nvenc {
-            let cq = (52.0 - (config.quality as f64 / 2.0))
-                .round()
-                .clamp(1.0, 51.0) as u32;
-            args.push("-rc:v".to_string());
-            args.push("vbr".to_string());
-            args.push("-cq:v".to_string());
-            args.push(cq.to_string());
-        } else if is_videotoolbox {
-            args.push("-q:v".to_string());
-            args.push(config.quality.to_string());
-        } else {
-            args.push("-crf".to_string());
-            args.push(config.crf.to_string());
-        }
-
-        if !is_videotoolbox {
-            args.push("-preset".to_string());
-            let preset_value = if is_nvenc {
-                map_nvenc_preset(&config.preset)
-            } else {
-                config.preset.clone()
-            };
-            args.push(preset_value);
-        }
-
-        if is_nvenc {
-            if config.nvenc_spatial_aq {
-                args.push("-spatial_aq".to_string());
-                args.push("1".to_string());
-            }
-            if config.nvenc_temporal_aq {
-                args.push("-temporal_aq".to_string());
-                args.push("1".to_string());
-            }
-        }
-
-        if is_videotoolbox {
-            if config.videotoolbox_allow_sw {
-                args.push("-allow_sw".to_string());
-                args.push("1".to_string());
-            }
-        }
-
-        let mut video_filters = Vec::new();
-
-        if config.flip_horizontal {
-            video_filters.push("hflip".to_string());
-        }
-
-        if config.flip_vertical {
-            video_filters.push("vflip".to_string());
-        }
-
-        match config.rotation.as_str() {
-            "90" => video_filters.push("transpose=1".to_string()),
-            "180" => video_filters.push("transpose=1,transpose=1".to_string()),
-            "270" => video_filters.push("transpose=2".to_string()),
-            _ => {}
-        }
-
-        if let Some(crop) = &config.crop {
-            if crop.enabled {
-                let crop_width = crop.width.max(1.0).round() as i32;
-                let crop_height = crop.height.max(1.0).round() as i32;
-                let crop_x = crop.x.max(0.0).round() as i32;
-                let crop_y = crop.y.max(0.0).round() as i32;
-                video_filters.push(format!(
-                    "crop={}:{}:{}:{}",
-                    crop_width, crop_height, crop_x, crop_y
-                ));
-            }
-        }
-
-        if let Some(burn_path) = &config.subtitle_burn_path {
-            if !burn_path.is_empty() {
-                let escaped_path = burn_path.replace('\\', "/").replace(':', "\\:");
-                video_filters.push(format!("subtitles='{}'", escaped_path));
-            }
-        }
-
-        if config.resolution != "original" || config.resolution == "custom" {
-            let algorithm = match config.scaling_algorithm.as_str() {
-                "lanczos" => ":flags=lanczos",
-                "bilinear" => ":flags=bilinear",
-                "nearest" => ":flags=neighbor",
-                "bicubic" => ":flags=bicubic",
-                _ => "",
-            };
-
-            let scale_filter = if config.resolution == "custom" {
-                let w = config.custom_width.as_deref().unwrap_or("-1");
-                let h = config.custom_height.as_deref().unwrap_or("-1");
-                if w != "-1" && h != "-1" {
-                    format!(
-                        "scale={w}:{h}:force_original_aspect_ratio=decrease{algo},pad={w}:{h}:(ow-iw)/2:(oh-ih)/2",
-                        w = w,
-                        h = h,
-                        algo = algorithm
-                    )
-                } else if w == "-1" && h == "-1" {
-                    "scale=-1:-1".to_string()
-                } else {
-                    format!("scale={}:{}{}", w, h, algorithm)
-                }
-            } else {
-                match config.resolution.as_str() {
-                    "1080p" => format!("scale=-2:1080{}", algorithm),
-                    "720p" => format!("scale=-2:720{}", algorithm),
-                    "480p" => format!("scale=-2:480{}", algorithm),
-                    _ => "scale=-1:-1".to_string(),
-                }
-            };
-
-            video_filters.push(scale_filter);
-        }
-
+        let video_filters = build_video_filters(config, true);
         if !video_filters.is_empty() {
             args.push("-vf".to_string());
             args.push(video_filters.join(","));
         }
 
-        if config.fps != "original" {
-            args.push("-r".to_string());
-            args.push(config.fps.clone());
-        }
+        add_fps_args(&mut args, config);
     }
 
     if (!config.selected_audio_tracks.is_empty() || !config.selected_subtitle_tracks.is_empty())
@@ -214,8 +89,7 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
     }
 
     if !config.selected_audio_tracks.is_empty() {
-        args.push("-c:a".to_string());
-        args.push(config.audio_codec.clone());
+        add_audio_codec_args(&mut args, config);
     }
 
     if !config.selected_subtitle_tracks.is_empty() {
@@ -228,47 +102,9 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
         args.push("0:s?".to_string());
     }
 
-    if config.subtitle_burn_path.is_none()
-        || config
-            .subtitle_burn_path
-            .as_ref()
-            .map_or(true, |p| p.is_empty())
-    {
-        args.push("-c:s".to_string());
-        args.push("copy".to_string());
-    }
+    add_subtitle_copy_args(&mut args, config);
 
-    let lossless_audio_codecs = ["flac", "alac", "pcm_s16le"];
-    if !lossless_audio_codecs.contains(&config.audio_codec.as_str())
-        && !config.selected_audio_tracks.is_empty()
-    {
-        args.push("-b:a".to_string());
-        args.push(format!("{}k", config.audio_bitrate));
-    }
-
-    match config.audio_channels.as_str() {
-        "stereo" => {
-            args.push("-ac".to_string());
-            args.push("2".to_string());
-        }
-        "mono" => {
-            args.push("-ac".to_string());
-            args.push("1".to_string());
-        }
-        _ => {}
-    }
-
-    let mut audio_filters: Vec<String> = Vec::new();
-
-    if config.audio_normalize {
-        audio_filters.push("loudnorm=I=-16:TP=-1.5:LRA=11".to_string());
-    }
-
-    if (config.audio_volume - 100.0).abs() > VOLUME_EPSILON {
-        let volume_factor = config.audio_volume / 100.0;
-        audio_filters.push(format!("volume={:.2}", volume_factor));
-    }
-
+    let audio_filters = build_audio_filters(config);
     if !audio_filters.is_empty() {
         args.push("-af".to_string());
         args.push(audio_filters.join(","));
@@ -280,7 +116,7 @@ pub fn build_ffmpeg_args(input: &str, output: &str, config: &ConversionConfig) -
     args
 }
 
-fn add_metadata_flags(args: &mut Vec<String>, metadata: &MetadataConfig) {
+pub fn add_metadata_flags(args: &mut Vec<String>, metadata: &MetadataConfig) {
     if let Some(v) = &metadata.title {
         if !v.is_empty() {
             args.push("-metadata".to_string());
