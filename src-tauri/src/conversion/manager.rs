@@ -253,9 +253,20 @@ impl ConversionManager {
                 let _ = CloseHandle(process_handle);
             }
 
+            // Cleanup temp directory for ML upscale tasks
+            let temp_dir = std::env::temp_dir().join(format!("frame_upscale_{}", id));
+            if temp_dir.exists() {
+                let _ = std::fs::remove_dir_all(&temp_dir);
+            }
+
             Ok(())
         } else {
             // Task might not be running yet or already finished, which is fine for cancel
+            // Still try to cleanup temp dir in case it exists
+            let temp_dir = std::env::temp_dir().join(format!("frame_upscale_{}", id));
+            if temp_dir.exists() {
+                let _ = std::fs::remove_dir_all(&temp_dir);
+            }
             Ok(())
         }
     }
