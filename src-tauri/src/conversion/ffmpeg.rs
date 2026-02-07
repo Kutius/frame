@@ -509,6 +509,20 @@ async fn run_upscale_worker(
             dec_args.push(end.clone());
         }
     }
+
+    if let Some(crop) = &task.config.crop {
+        if crop.enabled {
+            let crop_width = crop.width.max(1.0).round() as i32;
+            let crop_height = crop.height.max(1.0).round() as i32;
+            let crop_x = crop.x.max(0.0).round() as i32;
+            let crop_y = crop.y.max(0.0).round() as i32;
+            dec_args.push("-vf".to_string());
+            dec_args.push(format!(
+                "crop={}:{}:{}:{}",
+                crop_width, crop_height, crop_x, crop_y
+            ));
+        }
+    }
     dec_args.push(
         input_frames_dir
             .join("frame_%08d.png")
@@ -712,15 +726,26 @@ async fn run_upscale_worker(
             .join("frame_%08d.png")
             .to_string_lossy()
             .to_string(),
-        "-i".to_string(),
-        task.file_path.clone(),
+    ];
+
+    if let Some(start) = &task.config.start_time {
+        if !start.is_empty() {
+            enc_args.push("-ss".to_string());
+            enc_args.push(start.clone());
+        }
+    }
+
+    enc_args.push("-i".to_string());
+    enc_args.push(task.file_path.clone());
+    
+    enc_args.extend(vec![
         "-map".to_string(),
         "0:v:0".to_string(),
         "-map".to_string(),
         "1:a?".to_string(),
         "-c:v".to_string(),
         task.config.video_codec.clone(),
-    ];
+    ]);
 
     if task.config.video_bitrate_mode == "bitrate" {
         enc_args.push("-b:v".to_string());
@@ -736,6 +761,7 @@ async fn run_upscale_worker(
     enc_args.push(task.config.preset.clone());
     enc_args.push("-pix_fmt".to_string());
     enc_args.push("yuv420p".to_string());
+    enc_args.push("-shortest".to_string());
     enc_args.push("-y".to_string());
     enc_args.push(output_path.clone());
 
