@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **FFmpeg Stream Mapping:** Standard conversions now always map streams deterministically (`0:v:0`, `0:a?`, `0:s?`) when track overrides are not selected, eliminating ambiguous defaults and missing-stream edge cases.
 - **Audio Config Application:** Audio codec and bitrate settings are now applied consistently even when no explicit source audio tracks are selected.
+- **Cross-Tab Config Consistency:** Configuration normalization now runs in the shared state layer (including preset application), so container/codec/preset/upscale compatibility is enforced even if the Video tab was never opened.
 - **Queue Logic:** Resolved an issue where completed files would be re-queued for conversion when restarting the batch. The queue now explicitly ignores files with a "Completed" status.
 - **Titlebar UX:** The "Start Conversion" button is now disabled when all selected files have already been successfully processed, providing better visual feedback and preventing accidental re-runs.
 
